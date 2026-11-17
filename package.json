@@ -34,7 +34,7 @@
     },
     "./kernels": {
       "types": "./dist/kernels.d.ts",
-      "default": "./dist/kernels.js"
+      "default": "./dist/smaltml-simd-kernels.js"
     }
   },
   "files": [

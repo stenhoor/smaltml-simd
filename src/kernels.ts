@@ -14,6 +14,13 @@ export interface SimdOptions {
    * multiply-add where the processor fuses them, so the last bits can differ between processors. Off by default.
    */
   fusedMultiplyAdd?: boolean;
+  /**
+   * Where smaltml's thread pool workers load the plugin's kernels from: by default this module, beside the plugin.
+   * Where a bundler folds the plugin into an app's bundle, copy `dist/smaltml-simd-kernels.js` (this module and all
+   * it needs, in one file) beside the app, and give its URL here; otherwise the workers can't load the kernels, and
+   * fits run on one thread.
+   */
+  kernelsModule?: string;
 }
 
 /** The kernel contract the set is written for: smaltml's KERNELS_VERSION. */
@@ -37,6 +44,6 @@ export default async function kernelSet(options: SimdOptions = {}): Promise<Kern
     name: setName(fused),
     version: KERNELS_VERSION,
     kernels: { gramPart: (X, mean, from, to, weights, ones) => gram.gramPart(X, mean, from, to, weights, ones) },
-    threads: { module: import.meta.url, options: { fusedMultiplyAdd: fused } },
+    threads: { module: options.kernelsModule ?? import.meta.url, options: { fusedMultiplyAdd: fused } },
   };
 }

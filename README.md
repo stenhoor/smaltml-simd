@@ -33,7 +33,8 @@ kernelsInUse(); // { name: 'smaltml-simd', kernels: ['gramPart'], rejected: [] }
 - smaltml's thread pool workers load the same kernels, from this package's `dist/kernels.js`
   (`@smaltworks/smaltml-simd/kernels`), so a fit on several threads still gives exactly what `fitSync` gives. Where a
   bundler has folded that module into the app's bundle, the workers can't load it, and smaltml keeps fits on one
-  thread, with the same result. A self-contained copy for bundlers comes later.
+  thread, with the same result. For those apps, copy `dist/smaltml-simd-kernels.js` (the same module in one file, with
+  no imports) beside the app, and give its URL: `useSimd({ kernelsModule: '/assets/smaltml-simd-kernels.js' })`.
 - `simdSupport()` says whether the engine has WebAssembly SIMD and relaxed SIMD.
 
 ## What it changes, and what it doesn't

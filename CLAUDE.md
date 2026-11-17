@@ -67,6 +67,9 @@ The family's rules: one task per branch and pull request; open it once CI passes
 - **Layout:** `src/wasm/` writes WebAssembly (encodings, instructions, modules); `src/kernels/` holds one kernel per
   file, its module and the JavaScript that feeds it; `src/kernels.ts` is the kernel set, and the module smaltml's
   thread pool workers import, so it imports nothing from smaltml; `src/index.ts` is `useSimd()`.
+  `scripts/bundle.mjs`, our own, writes `dist/smaltml-simd-kernels.js`: that module and what it imports, in one file,
+  for apps whose bundler folds the plugin in. It takes only the plain imports and exports tsc emits, and fails on
+  anything else.
 - **A new kernel** needs smaltml's contract to name it first (smaltml's `useKernels`), tests against plain loops on odd
   sizes (`test/`), a row in the benchmark, and the compare tests passing with it on.
 - A significant decision gets an ADR, numbered in the family's sequence (smaltworks `adr/README.md`).
