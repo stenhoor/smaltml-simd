@@ -26,7 +26,7 @@ kernelsInUse()
 
 | name | kernels | rejected |
 | --- | --- | --- |
-| smaltml-simd | [gramPart, matMul] | [] |
+| smaltml-simd | [gramPart, matMul, binaryLogisticRows, multinomialLogisticRows] | [] |
 
 `useSimd()` resolves to `true` where the engine has WebAssembly SIMD, and to `false` where it doesn't. smaltml's own
 kernels then stay in use. smaltml checks the plugin's kernel against its own before it uses it. `gramPart` is smaltml's

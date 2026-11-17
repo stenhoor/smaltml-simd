@@ -32,7 +32,7 @@ const near = (a: ArrayLike<number>, b: ArrayLike<number>, rel: number) => {
 
 test('useSimd() replaces gramPart, and useKernels(null) puts smaltml\'s back', async () => {
   assert.equal(await useSimd(), true);
-  assert.deepEqual(kernelsInUse(), { name: 'smaltml-simd', kernels: ['gramPart', 'matMul'], rejected: [] });
+  assert.deepEqual(kernelsInUse(), { name: 'smaltml-simd', kernels: ['gramPart', 'matMul', 'binaryLogisticRows', 'multinomialLogisticRows'], rejected: [] });
   useKernels(null);
   assert.equal(kernelsInUse().name, 'smaltml');
   assert.equal(await useSimd({ fusedMultiplyAdd: true }), true);
@@ -80,4 +80,18 @@ test('matMulSync with the plugin gives smaltml\'s result bit for bit, and fused 
   assert.deepEqual(matMulSync(A, B).data, own);
   await useSimd({ fusedMultiplyAdd: true });
   near(matMulSync(A, B).data, own, 1e-14);
+});
+
+test('lbfgs logistic fits with the plugin\'s row kernels agree with smaltml\'s own within rounding, and threads equal fitSync', async () => {
+  const labels3 = Float64Array.from(y, (v) => (v < -0.5 ? 0 : v < 0.5 ? 1 : 2));
+  for (const target of [labels, labels3]) {
+    const own = new LogisticRegression({ maxIter: 30 }).fitSync(X, target);
+    for (const fusedMultiplyAdd of [false, true]) {
+      await useSimd({ fusedMultiplyAdd });
+      const simd = new LogisticRegression({ maxIter: 30 }).fitSync(X, target);
+      near((simd.coef as Matrix).data, (own.coef as Matrix).data, 1e-9);
+      assert.deepEqual((await new LogisticRegression({ maxIter: 30 }).fit(X, target, { threads: 3 })).toJSON(), simd.toJSON());
+      useKernels(null);
+    }
+  }
 });

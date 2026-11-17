@@ -76,7 +76,8 @@ Settings → Pages → Source must be **GitHub Actions**.
 - **Every ```` ```ts ```` block in `docs/` runs where it stands,** in the kit's playground with this site's runner.
   A tested result can't hold a time: timings differ from run to run, so pages show them only when a reader edits an
   example. `<!-- docs:skip -->` marks a block that isn't run (signatures, sketches).
-- **Layout:** `src/wasm/` writes WebAssembly (encodings, instructions, modules); `src/kernels/` holds one kernel per
+- **Layout:** `src/wasm/` writes WebAssembly (encodings, instructions, modules, and `math.ts`: our own f64x2 exp,
+  log1p and ln, with their accuracy measured in `test/math.test.ts`); `src/kernels/` holds one kernel per
   file, its module and the JavaScript that feeds it; `src/kernels.ts` is the kernel set, and the module smaltml's
   thread pool workers import, so it imports nothing from smaltml; `src/index.ts` is `useSimd()`.
   `scripts/bundle.mjs`, our own, writes `dist/smaltml-simd-kernels.js`: that module and what it imports, in one file,

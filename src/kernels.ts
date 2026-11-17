@@ -5,6 +5,7 @@
  */
 import type { KernelSet } from '@smaltworks/smaltml/core';
 import { gramModule, SimdGram } from './kernels/gram.ts';
+import { logisticModule, SimdLogistic } from './kernels/logistic.ts';
 import { matMulModule, SimdMatMul } from './kernels/matmul.ts';
 import { simdSupport } from './support.ts';
 
@@ -33,22 +34,30 @@ export function setName(fused: boolean): string {
 }
 
 /**
- * The kernel set: gramPart (XᵀX) and matMul (A · B) on WebAssembly SIMD, compiled here. Fused multiply-add only when asked for and the engine
+ * The kernel set: gramPart (XᵀX), matMul (A · B) and the logistic objectives' row steps on WebAssembly SIMD, compiled
+ * here. Fused multiply-add only when asked for and the engine
  * has relaxed SIMD. Fails where the engine has no WebAssembly SIMD; useSimd() checks that first.
  */
 export default async function kernelSet(options: SimdOptions = {}): Promise<KernelSet> {
   const support = simdSupport();
   if (!support.simd) throw new Error("this engine's WebAssembly has no SIMD");
   const fused = !!options.fusedMultiplyAdd && support.relaxed;
-  const [gramMod, matMulMod] = await Promise.all([WebAssembly.compile(gramModule(fused)), WebAssembly.compile(matMulModule(fused))]);
+  const [gramMod, matMulMod, logisticMod] = await Promise.all([
+    WebAssembly.compile(gramModule(fused)),
+    WebAssembly.compile(matMulModule(fused)),
+    WebAssembly.compile(logisticModule(fused)),
+  ]);
   const gram = new SimdGram(gramMod);
   const product = new SimdMatMul(matMulMod);
+  const logistic = new SimdLogistic(logisticMod);
   return {
     name: setName(fused),
     version: KERNELS_VERSION,
     kernels: {
       gramPart: (X, mean, from, to, weights, ones) => gram.gramPart(X, mean, from, to, weights, ones),
       matMul: (n, p, k, a, b) => product.matMul(n, p, k, a, b),
+      binaryLogisticRows: (z, y, weights, at, m, loss) => loss + logistic.binaryRows(z, y, weights, at, m),
+      multinomialLogisticRows: (z, stride, K, y, weights, at, m, loss) => loss + logistic.multinomialRows(z, stride, K, y, weights, at, m),
     },
     threads: { module: options.kernelsModule ?? import.meta.url, options: { fusedMultiplyAdd: fused } },
   };

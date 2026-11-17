@@ -31,6 +31,10 @@ A promise of smaltml's `KernelSet`:
 - `kernels.matMul`: A · B on WebAssembly SIMD, with smaltml's `matMul` kernel signature. It takes `(n, p, k, a, b)`,
   A n × p and B p × k as Float64Arrays column by column, and gives the n × k product, column by column. Under plain
   SIMD it is smaltml's own result bit for bit.
+- `kernels.binaryLogisticRows` and `kernels.multinomialLogisticRows`: the logistic objective's row steps, with
+  smaltml's signatures. They take a block's scores, and return the running loss plus the block's, with the scores
+  replaced by their residuals. They use the plugin's own exp, log1p and log, within a few rounding steps of
+  JavaScript's.
 - `threads`: the module's own URL, or `kernelsModule`, with the options. This is how smaltml's workers load it.
 
 ## Errors
@@ -57,6 +61,8 @@ kernelsInUse().kernels
 | --- |
 | gramPart |
 | matMul |
+| binaryLogisticRows |
+| multinomialLogisticRows |
 
 ## Working demo
 

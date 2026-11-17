@@ -5,12 +5,15 @@ description: 'Using smaltml SIMD: turning it on and off, what it changes and wha
 # Using the plugin
 
 smaltml is TypeScript, and JavaScript has no SIMD: its engines run a loop over a `Float64Array` one number at a time.
-WebAssembly has had 128-bit SIMD in every major browser since 2021–2023. smaltml SIMD runs two of smaltml's CPU
+WebAssembly has had 128-bit SIMD in every major browser since 2021–2023. smaltml SIMD runs four of smaltml's CPU
 kernels there:
 
 - `gramPart`, XᵀX: the Gram matrix behind LinearRegression, Ridge, Lasso, ElasticNet and LogisticRegression's
   `newton-cholesky` solver;
-- `matMul`, A · B: the matrix product behind `matMulSync`, and `matMul` when it runs on the CPU.
+- `matMul`, A · B: the matrix product behind `matMulSync`, and `matMul` when it runs on the CPU;
+- `binaryLogisticRows` and `multinomialLogisticRows`: the logistic objective's step for each block of rows (its
+  loss, and the residuals its gradient needs), behind LogisticRegression's default solver, `lbfgs`. They spend their
+  time in exp, log1p and log, which WebAssembly has no SIMD instructions for, so the plugin brings its own.
 
 ## Turning it on and off
 
@@ -34,7 +37,7 @@ it. Turning it on applies to every fit after it, in this thread and in smaltml's
 
 ## What changes, and what doesn't
 
-- **Speed:** the fits built on XᵀX, and the matrix product. A fit's gain grows with the number of columns, since
+- **Speed:** the fits built on XᵀX, `lbfgs` logistic fits, and the matrix product. A fit's gain grows with the number of columns, since
   XᵀX's work grows with their square while the rest of a fit reads each value once. See [Benchmarks](./benchmarks).
 - **The last bits:** the XᵀX kernel sums in another order: the even rows and the odd rows apart, then together.
   Fits are close to smaltml's own, not equal, and move by about 10⁻¹⁵ relative on well-conditioned data. Every compare case
