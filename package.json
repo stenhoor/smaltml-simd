@@ -24,12 +24,17 @@
     "test": "node --test 'test/**/*.test.ts'",
     "check": "npm run typecheck && npm test",
     "build": "node scripts/build.mjs",
+    "bench": "node bench/fits.ts",
     "prepare": "npm run build"
   },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./kernels": {
+      "types": "./dist/kernels.d.ts",
+      "default": "./dist/kernels.js"
     }
   },
   "files": [
@@ -39,7 +44,11 @@
     "README.md"
   ],
   "sideEffects": false,
+  "peerDependencies": {
+    "@smaltworks/smaltml": ">=0.1.0"
+  },
   "devDependencies": {
+    "@smaltworks/smaltml": "github:stenhoor/smaltml#ee0a8f44953b7c449f2500fa30a16ce545f2451f",
     "@types/node": "^22.20.5",
     "typescript": "~6.0.3",
     "typescript7": "npm:typescript@~7.0.2"

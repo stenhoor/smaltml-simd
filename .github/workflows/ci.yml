@@ -29,3 +29,35 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run build
+
+  # smaltml's own tests with the plugin on (smaltml ADR 0035, item 7): every compare case against scikit-learn within
+  # its tolerance, and threaded fits equal to fitSync, with plain SIMD and with fused multiply-add. smaltml is checked
+  # out at the commit this repository pins it to.
+  smaltml:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        fma: ['0', '1']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: smaltml-simd
+      - id: pin
+        run: echo "commit=$(node -p "require('./smaltml-simd/package.json').devDependencies['@smaltworks/smaltml'].split('#')[1]")" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: stenhoor/smaltml
+          ref: ${{ steps.pin.outputs.commit }}
+          path: smaltml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: smaltml-simd
+      - run: npm ci
+        working-directory: smaltml
+      - run: npx vitest run --root . --config ../smaltml-simd/test/smaltml.vitest.config.ts test/compare.test.ts test/parallel.test.ts
+        working-directory: smaltml
+        env:
+          SMALTML_SIMD_FMA: ${{ matrix.fma }}
