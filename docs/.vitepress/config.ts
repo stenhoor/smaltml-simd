@@ -10,6 +10,12 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const REPO = 'https://github.com/stenhoor/smaltml-simd'
 // GitHub Pages serves the site under the repository's name.
 const BASE = process.env.SMALTML_SIMD_BASE ?? '/smaltml-simd/'
+// The Official plugin badge, beside "A smaltworks project" in the footer (theme/official.ts does the same on pages with
+// a sidebar). It links to the plugin's entry on smaltml's plugin list (smalt-brand BRAND.md, "Plugins").
+const OFFICIAL = 'https://stenhoor.github.io/smaltml/guide/plugins#smaltml-simd'
+const officialBadge = (file: string, cls: string) => `<img class="${cls}" src="${BASE}${file}" alt="smaltml official plugin" height="28">`
+const footer = smaltworksFooter(BASE)
+footer.message += ` <a href="${OFFICIAL}">${officialBadge('official-smaltml.svg', 'sw-light')}${officialBadge('official-smaltml-on-dark.svg', 'sw-dark')}</a>`
 
 // smaltml SIMD is an infrastructure plugin: smaltml's brand and a plain name, no mark or colour of its own
 // (smaltml ADR 0035, item 10; smalt-brand BRAND.md, "Plugins").
@@ -94,7 +100,7 @@ export default defineConfig({
       },
     ],
     socialLinks: [{ icon: 'github', link: REPO }],
-    footer: smaltworksFooter(BASE),
+    footer,
     search: { provider: 'local' },
     outline: { level: [2, 3] },
   },
