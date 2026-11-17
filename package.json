@@ -1,0 +1,47 @@
+{
+  "name": "@smaltworks/smaltml-simd",
+  "version": "0.14.0",
+  "description": "WebAssembly SIMD kernels for smaltml, written by TypeScript.",
+  "keywords": [
+    "machine-learning",
+    "simd",
+    "webassembly",
+    "smaltml",
+    "typescript"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stenhoor/smaltml-simd.git"
+  },
+  "homepage": "https://github.com/stenhoor/smaltml-simd#readme",
+  "scripts": {
+    "typecheck": "node node_modules/typescript7/bin/tsc -p tsconfig.json --noEmit",
+    "test": "node --test 'test/**/*.test.ts'",
+    "check": "npm run typecheck && npm test",
+    "build": "node scripts/build.mjs",
+    "prepare": "npm run build"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "~6.0.3",
+    "typescript7": "npm:typescript@~7.0.2"
+  }
+}

@@ -1,0 +1,65 @@
+# CLAUDE.md
+
+smaltml-simd (repository `stenhoor/smaltml-simd`, npm `@smaltworks/smaltml-simd`, shown as "smaltml SIMD") is an
+optional plugin for smaltml: WebAssembly SIMD kernels that replace smaltml's heaviest CPU kernels, written by
+TypeScript in this repository. Its scope and design are smaltml's
+[ADR 0035](https://github.com/stenhoor/smaltml/blob/main/docs/adr/0035-simd-kernels-in-a-plugin.md). It is part of the
+smalt family: smaltworks' [STANDARDS.md](https://github.com/stenhoor/smaltworks/blob/main/STANDARDS.md) and
+[session rules](https://github.com/stenhoor/smaltworks/blob/main/context/session-rules.md) apply here, and smaltml's
+CLAUDE.md has the rules for its kernels.
+
+## Why WebAssembly here
+
+The family is TypeScript, and the core has no WebAssembly. This plugin is the exception the owner allowed on
+2026-11-15 (smaltworks DECISIONS.md, "WebAssembly: plugins only"): JavaScript has no SIMD, and WebAssembly is the
+platform's one route to it. It holds only while all five circumstances there hold:
+
+1. No TypeScript route exists to the capability, not merely a faster one.
+2. It's optional: smaltml works without it, in TypeScript, only slower.
+3. It's our own code, built from source here: no WebAssembly builds of other libraries.
+4. It's narrow: kernels behind a TypeScript interface, not an application in another language.
+5. It's revisited when the platform offers a TypeScript or JavaScript route, and retired if it can be.
+
+## Brand
+
+An infrastructure plugin (ADR 0035, item 10; smalt-brand BRAND.md, "Plugins"): smaltml's brand and a plain name,
+"smaltml SIMD", with no mark or colour of its own. Its README carries the Official plugin badge with smaltml's mark,
+once smalt-brand has one (today's plugin badges are smaltdb's only). Copy brand files unchanged from smalt-brand.
+
+## Workflow
+
+The family's rules: one task per branch and pull request; open it once CI passes; the owner merges. Before pushing,
+`npm run check`.
+
+- **Facts only.** Don't tell the owner something you haven't confirmed. Label everything else as an assumption, in
+  those words, with what would confirm it.
+- **Watch your PRs to the merge,** through their events, never by polling. Merging stays with the owner.
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `npm ci` | Installs dependencies, and builds `dist/` |
+| `npm run check` | Typecheck (TypeScript 7, the `typescript7` dev dependency), then the tests (`node --test`, on the TypeScript source: Node 22.18 and later strip its types) |
+| `npm run build` | `dist/` and type declarations, emitted by TypeScript 6.0.3 (`tsc`) for one more release (smaltty ADR 0030, decision 5) |
+
+## Rules
+
+- **TypeScript writes the WebAssembly** (ADR 0035, item 5). Kernels are TypeScript functions that emit the module's
+  bytes at run time: no compiler toolchain, no `.wasm` file, nothing loaded from another site. Every instruction is
+  written by code in this repository, with a comment that says what it is. Rust was considered on 2026-11-17 and not
+  chosen; changing that is an amendment to ADR 0035.
+- **Erasable TypeScript only** (`erasableSyntaxOnly`): no enums, namespaces or parameter properties, so Node runs the
+  source as it is. Relative imports name the `.ts` file; the build rewrites them to `.js`.
+- **smaltml's kernel contract is the interface.** The plugin replaces kernels only through smaltml's `useKernels`, with
+  the signatures and results of smaltml's own, for the contract version it was written for (`KERNELS_VERSION`).
+  smaltml checks each kernel at start against its own.
+- **Close, not equal** (ADR 0035, item 7). SIMD sums in another order, so results move in the last bits. Every compare
+  case of smaltml against scikit-learn still passes within its tolerance, with the plugin on; CI runs them. Threaded
+  fits equal `fitSync` exactly: the thread pool's workers load the same kernels.
+- **Plain SIMD by default.** Fused multiply-add (relaxed SIMD) only when the app asks for it, where the engine has it:
+  its last bits can differ between processors (ADR 0035, item 6).
+- **No number without its benchmark.** A speed claim names the benchmark that measured it, which anyone can rerun.
+- **Dependencies:** smaltml is a peer dependency, pinned to a commit for development, as the family pins its git
+  dependencies. No runtime dependencies. Ask the owner before adding any other package.
+- A significant decision gets an ADR, numbered in the family's sequence (smaltworks `adr/README.md`).
