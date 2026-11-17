@@ -10,6 +10,7 @@ function useSimd(options?: SimdOptions): Promise<boolean>;
 
 interface SimdOptions {
   fusedMultiplyAdd?: boolean;
+  logistic?: boolean;
   kernelsModule?: string;
 }
 ```
@@ -22,6 +23,9 @@ Turns the plugin on: smaltml's fits use its kernels from then on, in this thread
 - `fusedMultiplyAdd`: use relaxed SIMD's fused multiply-add (`f64x2.relaxed_madd`) where the engine has it. It is
   faster, and its last bits can differ between processors. Default `false`. Where the engine has no relaxed SIMD, it
   is ignored and plain SIMD runs.
+- `logistic`: also replace the logistic objective's row steps, behind LogisticRegression's `lbfgs` fits, with the
+  plugin's own exp, log1p and log. Default `false`: on the plugin's benchmark, `lbfgs` fits ran only 1.0 to 1.3 times
+  as fast on one thread, and some on 4 threads were slower ([Benchmarks](../guide/benchmarks)).
 - `kernelsModule`: the URL smaltml's thread pool workers load the kernels from. Default: the plugin's own
   `kernels.js`, beside `useSimd`. Give it where a bundler folds the plugin into the app: use the URL of a copy of
   `dist/smaltml-simd-kernels.js` ([Threads and bundlers](../guide/threads#apps-that-bundle)).
@@ -30,7 +34,7 @@ Turns the plugin on: smaltml's fits use its kernels from then on, in this thread
 
 A promise of `true` when smaltml uses the plugin's kernels. It is `false` where the engine has no WebAssembly SIMD,
 or where a kernel failed smaltml's check at start; smaltml's own kernels then stay in use. smaltml's `kernelsInUse()`
-then reports `name: 'smaltml-simd'`, or `'smaltml-simd, fused multiply-add'`, and `kernels: ['gramPart', 'matMul', 'binaryLogisticRows', 'multinomialLogisticRows']`.
+then reports `name: 'smaltml-simd'`, or `'smaltml-simd, fused multiply-add'`, and `kernels: ['gramPart', 'matMul']`.
 
 ## Errors
 
@@ -38,9 +42,9 @@ None of its own. It resolves to `false` rather than failing where the plugin can
 
 ## Notes
 
-- It replaces four of smaltml's kernels through smaltml's `useKernels` (kernel contract 1): `gramPart`, XᵀX over a
-  range of rows; `matMul`, the matrix product on the CPU; and `binaryLogisticRows` and `multinomialLogisticRows`, the
-  logistic objective's row steps. smaltml's other kernels stay its own.
+- It replaces smaltml's kernels through smaltml's `useKernels` (kernel contract 1): `gramPart`, XᵀX over a range of
+  rows, and `matMul`, the matrix product on the CPU; with `logistic`, also `binaryLogisticRows` and
+  `multinomialLogisticRows`, the logistic objective's row steps. smaltml's other kernels stay its own.
 - Calling it again replaces the earlier set, with the new options. smaltml's `useKernels(null)` turns it off.
 - Each call compiles the kernel modules, about 700 bytes each, once for this thread and once in each of smaltml's workers
   when the pool next starts.
@@ -57,7 +61,7 @@ kernelsInUse()
 
 | name | kernels | rejected |
 | --- | --- | --- |
-| smaltml-simd, fused multiply-add | [gramPart, matMul, binaryLogisticRows, multinomialLogisticRows] | [] |
+| smaltml-simd, fused multiply-add | [gramPart, matMul] | [] |
 
 ## Working demo
 

@@ -15,8 +15,9 @@ Markdown made for agents beside its pages:
 
 smaltml SIMD (`@smaltworks/smaltml-simd`, not on npm yet) is an optional plugin for smaltml
 (`@smaltworks/smaltml`). It runs four of smaltml's kernels on WebAssembly SIMD. XᵀX makes the fits built on it faster:
-LinearRegression, Ridge, Lasso, ElasticNet, and LogisticRegression with `solver: 'newton-cholesky'`. The logistic row
-kernels make LogisticRegression's default `lbfgs` fits faster. The matrix product makes `matMulSync` faster, with
+LinearRegression, Ridge, Lasso, ElasticNet, and LogisticRegression with `solver: 'newton-cholesky'`. With
+`useSimd({ logistic: true })`, the logistic row kernels make LogisticRegression's default `lbfgs` fits a little
+faster. The matrix product makes `matMulSync` faster, with
 smaltml's result bit for bit under plain SIMD. It has no runtime
 dependencies; smaltml is a peer dependency.
 
@@ -29,7 +30,7 @@ import { Ridge, kernelsInUse, useKernels } from '@smaltworks/smaltml';
 
 const on = await useSimd();              // false where WebAssembly SIMD is missing: smaltml's own kernels run
 const model = await new Ridge().fit(X, y);
-kernelsInUse();                          // { name: 'smaltml-simd', kernels: ['gramPart', 'matMul', 'binaryLogisticRows', 'multinomialLogisticRows'], rejected: [] }
+kernelsInUse();                          // { name: 'smaltml-simd', kernels: ['gramPart', 'matMul'], rejected: [] }
 useKernels(null);                        // off again
 ```
 

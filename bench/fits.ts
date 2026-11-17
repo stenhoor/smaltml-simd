@@ -6,7 +6,8 @@
 // Then, with --matmul (or only that, with --only-matmul), smaltml's matMulSync, the matrix product on the CPU, with
 // smaltml's kernel, plain SIMD and fused multiply-add.
 //
-// With --only-logistic, only the LogisticRegression fits by lbfgs (the logistic row kernels).
+// With --only-logistic, only the LogisticRegression fits by lbfgs (the logistic row kernels). The SIMD columns turn
+// the logistic kernels on (useSimd({ logistic: true })); the other fits never call them.
 //
 //   node bench/fits.ts [--threads 4] [--matmul | --only-matmul | --only-logistic]
 import { cpus } from 'node:os';
@@ -86,8 +87,8 @@ const MODELS: [string, () => Model, 'y' | 'y2' | 'y3'][] = [
 const onlyLogistic = process.argv.includes('--only-logistic');
 const MODES = [
   ['smaltml', async () => { useKernels(null); }],
-  ['SIMD', async () => { await useSimd(); }],
-  ['SIMD, fused', async () => { await useSimd({ fusedMultiplyAdd: true }); }],
+  ['SIMD', async () => { await useSimd({ logistic: true }); }],
+  ['SIMD, fused', async () => { await useSimd({ fusedMultiplyAdd: true, logistic: true }); }],
 ] as const;
 
 configureThreads({ max: threads });

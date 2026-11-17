@@ -14,8 +14,8 @@ models, as WebAssembly SIMD, and smaltml uses them where the app turns the plugi
 runs exactly as before. The kernels are TypeScript functions that write the WebAssembly bytes when they run: no
 toolchain, no `.wasm` file, nothing loaded from another site.
 
-> **Status: 0.14.0, work in progress.** Four kernels: XᵀX (smaltml's `gramPart`), the matrix product (`matMul`), and
-> the logistic objective's row steps, on the plugin's own SIMD exp, log1p and log
+> **Status: 0.14.0, work in progress.** XᵀX (smaltml's `gramPart`) and the matrix product (`matMul`); with
+> `useSimd({ logistic: true })`, the logistic objective's row steps too, on the plugin's own SIMD exp, log1p and log
 > ([ADR 0035](https://github.com/stenhoor/smaltml/blob/main/docs/adr/0035-simd-kernels-in-a-plugin.md)).
 
 ## Use
@@ -26,7 +26,7 @@ import { Ridge, kernelsInUse } from '@smaltworks/smaltml';
 
 await useSimd(); // true where WebAssembly SIMD is available; smaltml's own kernels otherwise
 const model = await new Ridge().fit(X, y); // XᵀX on SIMD, here and on smaltml's threads
-kernelsInUse(); // { name: 'smaltml-simd', kernels: ['gramPart', 'matMul', 'binaryLogisticRows', 'multinomialLogisticRows'], rejected: [] }
+kernelsInUse(); // { name: 'smaltml-simd', kernels: ['gramPart', 'matMul'], rejected: [] }
 ```
 
 - `useSimd({ fusedMultiplyAdd: true })` uses relaxed SIMD's fused multiply-add where the engine has it: faster, and
@@ -43,7 +43,7 @@ kernelsInUse(); // { name: 'smaltml-simd', kernels: ['gramPart', 'matMul', 'bina
 ## What it changes, and what it doesn't
 
 - **Speed:** the fits built on XᵀX (LinearRegression, Ridge, Lasso, ElasticNet, LogisticRegression with
-  `newton-cholesky`), LogisticRegression's default `lbfgs` fits, and smaltml's matrix product on the CPU
+  `newton-cholesky`), with `logistic: true` a little on LogisticRegression's `lbfgs` fits, and smaltml's matrix product on the CPU
   (`matMulSync`, and `matMul` off the GPU). See [the benchmark](bench/README.md) for each model, on one thread and several.
 - **The last bits:** SIMD sums in another order, so results are close to smaltml's own, not equal. Agreement with
   scikit-learn doesn't change: CI runs smaltml's compare tests with the plugin on.
