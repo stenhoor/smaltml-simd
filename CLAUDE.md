@@ -24,7 +24,9 @@ platform's one route to it. It holds only while all five circumstances there hol
 
 An infrastructure plugin (ADR 0035, item 10; smalt-brand BRAND.md, "Plugins"): smaltml's brand and a plain name,
 "smaltml SIMD", with no mark or colour of its own. Its README carries the Official plugin badge with smaltml's mark,
-(smalt-brand `badges/plugins/official-smaltml.svg`), linking to smaltml's Plugins page. Copy brand files unchanged
+(smalt-brand `badges/plugins/official-smaltml.svg`), linking to smaltml's Plugins page; the site shows it at the foot
+of every page, beside "A smaltworks project" (the owner, 2026-11-17: `docs/.vitepress/config.ts` and the site's own
+`theme/official.ts`, since the kit's files stay unchanged). Copy brand files unchanged
 from smalt-brand: the site kit (`docs/.vitepress/theme/{shiki.ts,smaltdb.css,smaltworks.ts,stage.ts,playground.ts,agents.ts}`
 from `themes/vitepress/`), smaltml's logos (`logos/smaltml/`) and the badges, into `docs/public/`.
 

@@ -1,0 +1,8 @@
+/* The Official plugin badge beside "A smaltworks project" (official.ts, and the footer in config.ts). On pages with a
+   sidebar, the kit's row (stage.ts: its badge, then "MIT License") opens into ours, so the two badges sit together and
+   the licence follows them. */
+.sw-footer-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0 0 24px; font-size: 13px; color: var(--vp-c-text-2); }
+.sw-footer-badges .sw-project { display: contents; }
+.sw-footer-badges .sw-project > a { order: -2; }
+.sw-official { order: -1; display: inline-block; line-height: 0; }
+.VPFooter .message a + a { margin-left: 12px; }

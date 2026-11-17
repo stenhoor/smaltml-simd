@@ -29,8 +29,6 @@ features:
     details: An app turns it on with one call. smaltml checks every kernel against its own first, and runs exactly as before where SIMD is missing or the plugin isn't installed.
 ---
 
-<a href="https://stenhoor.github.io/smaltml/guide/plugins#smaltml-simd"><picture><source media="(prefers-color-scheme: dark)" srcset="/official-smaltml-on-dark.svg"><img alt="smaltml official plugin" src="/official-smaltml.svg" height="28"></picture></a>
-
 <!-- docs:skip -->
 ```ts
 import { useSimd } from '@smaltworks/smaltml-simd';
