@@ -57,6 +57,21 @@ Each sum adds its products in the order of l, from 0, as smaltml's own loop does
 smaltml's own bit for bit; only fused multiply-add moves it, within rounding. The gain comes from the tiles: each
 value of A that is loaded serves four columns of the output.
 
+## exp, log1p and log, our own
+
+The logistic row kernels need exp, log1p and log on two rows at a time, and WebAssembly has no SIMD instruction for
+any of them. The plugin writes its own (`src/wasm/math.ts`), each from its definition:
+
+- **exp(x)**, for x ≤ 0 (the logistic objectives only take exp(−|z|) and exp(z − max)): x = k · ln 2 + r with
+  |r| ≤ ln2/2, so eˣ = 2ᵏ · eʳ. eʳ is its Taylor series to r¹³, and 2ᵏ is built from its bits. Below −708, 0.
+- **log1p(u)**, for 0 ≤ u ≤ 1: 2·atanh(t) with t = u / (2 + u) ≤ 1/3, a series in t².
+- **ln x**, for x ≥ 1 (a softmax's Σ e^(z − max)): x = 2ᵉ · m, so ln x = e · ln 2 + log1p(m − 1).
+
+The polynomials run by Estrin's scheme, in pairs, so their chains of dependent multiply-adds are short, with
+Horner's rule for the last two terms, which keeps the rounding of the large terms small. Against JavaScript's own,
+over a million random inputs per range: exp within 1 unit in the last place, log1p and ln within 3. So logistic fits
+with the plugin are close to smaltml's own, not equal, as the others are.
+
 ## Checked twice
 
 - **By the plugin's tests**, against plain loops, on sizes from 1 × 1 up, with means, weights and a column of ones:

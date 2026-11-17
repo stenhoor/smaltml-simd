@@ -122,4 +122,47 @@ export class Code {
    * two where it doesn't.
    */
   f64x2RelaxedMadd(): this { return this.#simd(0x107); }
+
+  // More f64x2, and the bit-level v128 and i64x2 instructions the math functions (math.ts) need
+
+  /** `v128.const`: two f64, lane 0 then lane 1, as their little-endian bytes. */
+  f64x2Const(a: number, b = a): this {
+    const bytes = new Uint8Array(new Float64Array([a, b]).buffer);
+    return this.#simd(0x0c, ...bytes);
+  }
+  /** `v128.const`: two 64-bit integers' bits, lane 0 then lane 1, little-endian. */
+  i64x2Const(a: bigint, b = a): this {
+    const bytes = new Uint8Array(new BigUint64Array([a, b]).buffer);
+    return this.#simd(0x0c, ...bytes);
+  }
+  /** `f64x2.sub`, lane by lane. */
+  f64x2Sub(): this { return this.#simd(0xf1); }
+  /** `f64x2.div`, lane by lane. */
+  f64x2Div(): this { return this.#simd(0xf3); }
+  /** `f64x2.max`, lane by lane. */
+  f64x2Max(): this { return this.#simd(0xf5); }
+  /** `f64x2.abs`, lane by lane. */
+  f64x2Abs(): this { return this.#simd(0xec); }
+  /** `f64x2.neg`, lane by lane. */
+  f64x2Neg(): this { return this.#simd(0xed); }
+  /** `f64x2.nearest`: rounded to the nearest whole number, ties to even, lane by lane. */
+  f64x2Nearest(): this { return this.#simd(0x94); }
+  /** `f64x2.eq`: all ones in a lane where a = b, else zeros. */
+  f64x2Eq(): this { return this.#simd(0x47); }
+  /** `f64x2.lt`: all ones in a lane where a < b, else zeros. */
+  f64x2Lt(): this { return this.#simd(0x49); }
+  /** `f64x2.ge`: all ones in a lane where a ≥ b, else zeros. */
+  f64x2Ge(): this { return this.#simd(0x4c); }
+  /** `v128.and` */
+  v128And(): this { return this.#simd(0x4e); }
+  /** `v128.or` */
+  v128Or(): this { return this.#simd(0x50); }
+  /** `v128.bitselect`: bits of a where the mask (on top of the stack) is 1, of b where it is 0. */
+  v128Bitselect(): this { return this.#simd(0x52); }
+  /** `i64x2.shl`: each 64-bit lane shifted left by an i32 count. */
+  i64x2Shl(): this { return this.#simd(0xcb); }
+  /** `i64x2.shr_u`: each 64-bit lane shifted right, unsigned, by an i32 count. */
+  i64x2ShrU(): this { return this.#simd(0xcd); }
+  /** `i64x2.sub`, lane by lane. */
+  i64x2Sub(): this { return this.#simd(0xd1); }
 }

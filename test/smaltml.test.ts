@@ -81,3 +81,24 @@ test('matMulSync with the plugin gives smaltml\'s result bit for bit, and fused 
   await useSimd({ fusedMultiplyAdd: true });
   near(matMulSync(A, B).data, own, 1e-14);
 });
+
+test('lbfgs logistic fits with the plugin\'s row kernels agree with smaltml\'s own within rounding, and threads equal fitSync', async () => {
+  const labels3 = Float64Array.from(y, (v) => (v < -0.5 ? 0 : v < 0.5 ? 1 : 2));
+  for (const target of [labels, labels3]) {
+    const own = new LogisticRegression({ maxIter: 30 }).fitSync(X, target);
+    for (const fusedMultiplyAdd of [false, true]) {
+      await useSimd({ fusedMultiplyAdd, logistic: true });
+      const simd = new LogisticRegression({ maxIter: 30 }).fitSync(X, target);
+      near((simd.coef as Matrix).data, (own.coef as Matrix).data, 1e-9);
+      assert.deepEqual((await new LogisticRegression({ maxIter: 30 }).fit(X, target, { threads: 3 })).toJSON(), simd.toJSON());
+      useKernels(null);
+    }
+  }
+});
+
+test('the logistic kernels are off unless asked for', async () => {
+  await useSimd();
+  assert.deepEqual(kernelsInUse().kernels, ['gramPart', 'matMul']);
+  await useSimd({ logistic: true });
+  assert.deepEqual(kernelsInUse().kernels, ['gramPart', 'matMul', 'binaryLogisticRows', 'multinomialLogisticRows']);
+});

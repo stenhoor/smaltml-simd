@@ -64,3 +64,30 @@ square. Same machine and smaltml as above; median ms of 5 or 9 runs.
 - **Plain SIMD gives smaltml's product bit for bit**: each sum adds its products in smaltml's order. Fused
   multiply-add moves it by under 6 × 10⁻¹⁶ of the largest entry.
 - Nothing in smaltml's fits calls `matMulSync` today, so the fits above don't change with this kernel.
+
+## 2026-11-17: the logistic row kernels, `logistic: true`
+
+`node bench/fits.ts --only-logistic`: LogisticRegression's default `lbfgs` fits, 2 and 3 classes, with smaltml's
+kernels, plain SIMD and fused multiply-add (`useSimd({ logistic: true })`), on one thread and on 4. Same machine as
+above, smaltml at `9ccae2f`; median ms of 3 to 9 runs. All these fits stop at their 100 iterations without converging,
+on unscaled data, as smaltml's benchmark fits them.
+
+| Data | Fit | smaltml, 1 thread | SIMD | SIMD, fused | smaltml, 4 threads | SIMD | SIMD, fused | Largest coefficient difference, SIMD (fused) |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 10k × 20 | LogisticRegression, lbfgs, 2 classes | 92 | 72 (1.3×) | 70 (1.3×) | 108 | 88 (1.2×) | 94 (1.1×) | 3.3e-2 (3.3e-2) |
+| 10k × 20 | LogisticRegression, lbfgs, 3 classes | 216 | 219 (1.0×) | 178 (1.2×) | 237 | 216 (1.1×) | 208 (1.1×) | 6.1e-8 (6.1e-8) |
+| 200k × 50 | LogisticRegression, lbfgs, 2 classes | 3635 | 3393 (1.1×) | 3423 (1.1×) | 1530 | 1575 (1.0×) | 1494 (1.0×) | 4.1e-3 (4.1e-3) |
+| 200k × 50 | LogisticRegression, lbfgs, 3 classes | 9890 | 9006 (1.1×) | 8955 (1.1×) | 3587 | 3599 (1.0×) | 4016 (0.9×) | 2.6e-7 (2.6e-7) |
+| 50k × 200 | LogisticRegression, lbfgs, 2 classes | 3120 | 3176 (1.0×) | 3066 (1.0×) | 1160 | 1363 (0.9×) | 1106 (1.0×) | 1.2e-8 (1.2e-8) |
+| 50k × 200 | LogisticRegression, lbfgs, 3 classes | 8549 | 9246 (0.9×) | 8758 (1.0×) | 3035 | 3927 (0.8×) | 3872 (0.8×) | 2.4e-3 (2.4e-3) |
+
+- **Little gain:** 1.0 to 1.3 times as fast on one thread, the most on the narrowest data. On 4 threads, 0.8 to 1.2
+  times: two of the six fits were slower. Whether that is the VM's noise (about ±30% between rounds) is not known;
+  it needs a quieter machine. A fit spends most of its time in X·w and Xᵀ·r, which these kernels don't change
+  (smaltml's `bench/exp-share.mjs` measures the share they can touch: 12% to 49%).
+- **So they are off by default,** and on only with `useSimd({ logistic: true })` (the owner, 2026-11-17).
+- **The large coefficient differences** come from fits that stop early: at the iteration limit, or at `lbfgs`'s
+  tolerance. Such a fit is only defined to that tolerance, and the last bits decide where it stops. On standardized
+  data, where the fit converges in 12 iterations, coefficients agreed within 6 × 10⁻¹⁶ (10k × 20, 2 classes; a check
+  made by hand, not by this script).
+  smaltml's compare tests against scikit-learn pass with the kernels on.

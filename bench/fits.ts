@@ -6,7 +6,10 @@
 // Then, with --matmul (or only that, with --only-matmul), smaltml's matMulSync, the matrix product on the CPU, with
 // smaltml's kernel, plain SIMD and fused multiply-add.
 //
-//   node bench/fits.ts [--threads 4] [--matmul | --only-matmul]
+// With --only-logistic, only the LogisticRegression fits by lbfgs (the logistic row kernels). The SIMD columns turn
+// the logistic kernels on (useSimd({ logistic: true })); the other fits never call them.
+//
+//   node bench/fits.ts [--threads 4] [--matmul | --only-matmul | --only-logistic]
 import { cpus } from 'node:os';
 import { performance } from 'node:perf_hooks';
 import { ElasticNet, Lasso, LinearRegression, LogisticRegression, Matrix, Ridge, configureThreads, matMulSync, stopThreads, useKernels, VERSION } from '@smaltworks/smaltml';
@@ -43,6 +46,7 @@ function data(n: number, p: number) {
   for (let j = 0; j < p; j++) for (let i = 0; i < n; i++) X[j * n + i] = r() * scale[j]! + shift[j]!;
   const y = new Float64Array(n);
   const y2 = new Float64Array(n);
+  const y3 = new Float64Array(n);
   for (let i = 0; i < n; i++) {
     let s = 0;
     let z = 0;
@@ -52,9 +56,11 @@ function data(n: number, p: number) {
       z += ((x - shift[j]!) / scale[j]!) * w[j]!;
     }
     y[i] = s + r();
-    y2[i] = z + r() > 0 ? 1 : 0;
+    const zn = z + r();
+    y2[i] = zn > 0 ? 1 : 0;
+    y3[i] = zn < -0.6 ? 0 : zn < 0.6 ? 1 : 2;
   }
-  return { X: new Matrix(n, p, X), y, y2 };
+  return { X: new Matrix(n, p, X), y, y2, y3 };
 }
 
 async function median(f: () => unknown, reps: number): Promise<number> {
@@ -69,17 +75,20 @@ async function median(f: () => unknown, reps: number): Promise<number> {
 }
 
 type Model = { fitSync(X: Matrix, y: Float64Array): { coef: Float64Array | Matrix }; fit(X: Matrix, y: Float64Array, o: object): Promise<unknown> };
-const MODELS: [string, () => Model, 'y' | 'y2'][] = [
+const MODELS: [string, () => Model, 'y' | 'y2' | 'y3'][] = [
   ['LinearRegression', () => new LinearRegression(), 'y'],
   ['Ridge', () => new Ridge({ alpha: 1 }), 'y'],
   ['Lasso (alpha 0.1)', () => new Lasso({ alpha: 0.1 }), 'y'],
   ['ElasticNet (alpha 0.1)', () => new ElasticNet({ alpha: 0.1 }), 'y'],
   ['LogisticRegression, newton-cholesky', () => new LogisticRegression({ solver: 'newton-cholesky' }), 'y2'],
+  ['LogisticRegression, lbfgs, 2 classes', () => new LogisticRegression(), 'y2'],
+  ['LogisticRegression, lbfgs, 3 classes', () => new LogisticRegression(), 'y3'],
 ];
+const onlyLogistic = process.argv.includes('--only-logistic');
 const MODES = [
   ['smaltml', async () => { useKernels(null); }],
-  ['SIMD', async () => { await useSimd(); }],
-  ['SIMD, fused', async () => { await useSimd({ fusedMultiplyAdd: true }); }],
+  ['SIMD', async () => { await useSimd({ logistic: true }); }],
+  ['SIMD, fused', async () => { await useSimd({ fusedMultiplyAdd: true, logistic: true }); }],
 ] as const;
 
 configureThreads({ max: threads });
@@ -93,8 +102,8 @@ if (!onlyMatMul) {
   console.log('| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |');
   for (const { name, n, p } of SIZES) {
     const d = data(n, p);
-    const reps = n * p < 2_000_000 ? 9 : 5;
-    for (const [model, make, target] of MODELS) {
+    const reps = n * p < 2_000_000 ? 9 : onlyLogistic ? 3 : 5;
+    for (const [model, make, target] of MODELS.filter(([name]) => !onlyLogistic || name.includes('lbfgs'))) {
       const one: number[] = [];
       const many: number[] = [];
       const coefs: Float64Array[] = [];
