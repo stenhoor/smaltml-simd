@@ -19,8 +19,8 @@ hero:
       text: GitHub
       link: https://github.com/stenhoor/smaltml-simd
 features:
-  - title: Faster fits on XᵀX
-    details: LinearRegression, Ridge, Lasso, ElasticNet and newton-cholesky run their XᵀX on 128-bit SIMD. On one 4-core machine, fits ran 1.2 to 4.7 times as fast on one thread.
+  - title: Faster XᵀX and products
+    details: LinearRegression, Ridge, Lasso, ElasticNet and newton-cholesky run their XᵀX on 128-bit SIMD, and matMulSync its products. On one 4-core machine, fits ran 1.2 to 4.7 times as fast on one thread.
   - title: The same models and results
     details: Results are close to smaltml's own, not equal, since SIMD sums in another order. Every compare case against scikit-learn still passes, and threaded fits still equal fitSync.
   - title: Written by TypeScript

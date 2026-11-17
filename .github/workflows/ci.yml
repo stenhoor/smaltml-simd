@@ -57,7 +57,7 @@ jobs:
         working-directory: smaltml-simd
       - run: npm ci
         working-directory: smaltml
-      - run: npx vitest run --root . --config ../smaltml-simd/test/smaltml.vitest.config.ts test/compare.test.ts test/parallel.test.ts
+      - run: npx vitest run --root . --config ../smaltml-simd/test/smaltml.vitest.config.ts test/compare.test.ts test/parallel.test.ts test/hardware.test.ts
         working-directory: smaltml
         env:
           SMALTML_SIMD_FMA: ${{ matrix.fma }}

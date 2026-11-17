@@ -85,6 +85,8 @@ export class Code {
   i32Sub(): this { return this.#op(0x6b); }
   /** `i32.mul` */
   i32Mul(): this { return this.#op(0x6c); }
+  /** `i32.ne`: 1 when a ≠ b. */
+  i32Ne(): this { return this.#op(0x47); }
   /** `i32.lt_u`: 1 when a < b, unsigned. */
   i32LtU(): this { return this.#op(0x49); }
   /** `i32.ge_u`: 1 when a ≥ b, unsigned. */
@@ -103,6 +105,8 @@ export class Code {
 
   /** `v128.load`, 16-byte aligned: two f64 from memory. */
   v128Load(offset = 0): this { return this.#simd(0x00, ...this.#mem(4, offset)); }
+  /** `v128.store`, 16-byte aligned: two f64 to memory (address, then value, on the stack). */
+  v128Store(offset = 0): this { return this.#simd(0x0b, ...this.#mem(4, offset)); }
   /** `v128.const 0`: sixteen bytes of zero, so 0 in both f64 lanes. */
   v128Zero(): this { return this.#simd(0x0c, ...Array<number>(16).fill(0)); }
   /** `f64x2.splat`: an f64 in both lanes. */

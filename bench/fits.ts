@@ -3,10 +3,13 @@
 // on one thread (fitSync) and on several (fit with threads). The median of several runs after a warm-up. Prints a
 // Markdown table, and the largest relative difference of each fit's coefficients from smaltml's own.
 //
-//   node bench/fits.ts [--threads 4]
+// Then, with --matmul (or only that, with --only-matmul), smaltml's matMulSync, the matrix product on the CPU, with
+// smaltml's kernel, plain SIMD and fused multiply-add.
+//
+//   node bench/fits.ts [--threads 4] [--matmul | --only-matmul]
 import { cpus } from 'node:os';
 import { performance } from 'node:perf_hooks';
-import { ElasticNet, Lasso, LinearRegression, LogisticRegression, Matrix, Ridge, configureThreads, stopThreads, useKernels, VERSION } from '@smaltworks/smaltml';
+import { ElasticNet, Lasso, LinearRegression, LogisticRegression, Matrix, Ridge, configureThreads, matMulSync, stopThreads, useKernels, VERSION } from '@smaltworks/smaltml';
 import { useSimd } from '../src/index.ts';
 
 const at = process.argv.indexOf('--threads');
@@ -82,27 +85,66 @@ const MODES = [
 configureThreads({ max: threads });
 const coef = (m: { coef: Float64Array | Matrix }) => (m.coef instanceof Matrix ? m.coef.data : m.coef);
 const fmt = (ms: number) => (ms < 10 ? ms.toFixed(1) : ms.toFixed(0));
+const onlyMatMul = process.argv.includes('--only-matmul');
 console.log(`smaltml ${VERSION} with smaltml-simd, Node ${process.versions.node}, ${cpus()[0]?.model ?? 'unknown CPU'} (${cpus().length} cores); median ms`);
-console.log();
-console.log(`| Data | Fit | smaltml, 1 thread | SIMD | SIMD, fused | smaltml, ${threads} threads | SIMD | SIMD, fused | Largest coefficient difference, SIMD (fused) |`);
-console.log('| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |');
-for (const { name, n, p } of SIZES) {
-  const d = data(n, p);
-  const reps = n * p < 2_000_000 ? 9 : 5;
-  for (const [model, make, target] of MODELS) {
-    const one: number[] = [];
-    const many: number[] = [];
-    const coefs: Float64Array[] = [];
+if (!onlyMatMul) {
+  console.log();
+  console.log(`| Data | Fit | smaltml, 1 thread | SIMD | SIMD, fused | smaltml, ${threads} threads | SIMD | SIMD, fused | Largest coefficient difference, SIMD (fused) |`);
+  console.log('| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |');
+  for (const { name, n, p } of SIZES) {
+    const d = data(n, p);
+    const reps = n * p < 2_000_000 ? 9 : 5;
+    for (const [model, make, target] of MODELS) {
+      const one: number[] = [];
+      const many: number[] = [];
+      const coefs: Float64Array[] = [];
+      for (const [, on] of MODES) {
+        await on();
+        one.push(await median(() => make().fitSync(d.X, d[target]), reps));
+        many.push(await median(() => make().fit(d.X, d[target], { threads }), reps));
+        coefs.push(coef(make().fitSync(d.X, d[target])));
+      }
+      const scale = Math.max(...Array.from(coefs[0]!, Math.abs));
+      const diff = (c: Float64Array) => Math.max(...Array.from(c, (v, i) => Math.abs(v - coefs[0]![i]!))) / scale;
+      const cell = (ts: number[], i: number) => (i === 0 ? fmt(ts[0]!) : `${fmt(ts[i]!)} (${(ts[0]! / ts[i]!).toFixed(1)}×)`);
+      console.log(`| ${name} | ${model} | ${[0, 1, 2].map((i) => cell(one, i)).join(' | ')} | ${[0, 1, 2].map((i) => cell(many, i)).join(' | ')} | ${diff(coefs[1]!).toExponential(1)} (${diff(coefs[2]!).toExponential(1)}) |`);
+    }
+  }
+}
+
+if (onlyMatMul || process.argv.includes('--matmul')) {
+  // matMulSync: A from the benchmark generator, B a few columns (predictions with several targets) or square.
+  const PRODUCTS = [
+    { name: '200k × 50 · 50 × 1', n: 200_000, p: 50, k: 1 },
+    { name: '200k × 50 · 50 × 3', n: 200_000, p: 50, k: 3 },
+    { name: '50k × 200 · 200 × 10', n: 50_000, p: 200, k: 10 },
+    { name: '1,000 × 500 · 500 × 500', n: 1_000, p: 500, k: 500 },
+  ];
+  console.log();
+  console.log('| Product | smaltml | SIMD | SIMD, fused | Equal to smaltml, SIMD | Largest difference, fused |');
+  console.log('| --- | ---: | ---: | ---: | --- | ---: |');
+  for (const { name, n, p, k } of PRODUCTS) {
+    const r = normals(n + p + k);
+    const A = new Matrix(n, p, Float64Array.from({ length: n * p }, r));
+    const B = new Matrix(p, k, Float64Array.from({ length: p * k }, r));
+    const reps = n * p * k < 50_000_000 ? 9 : 5;
+    const times: number[] = [];
+    const results: Float64Array[] = [];
     for (const [, on] of MODES) {
       await on();
-      one.push(await median(() => make().fitSync(d.X, d[target]), reps));
-      many.push(await median(() => make().fit(d.X, d[target], { threads }), reps));
-      coefs.push(coef(make().fitSync(d.X, d[target])));
+      times.push(await median(() => matMulSync(A, B), reps));
+      results.push(matMulSync(A, B).data);
     }
-    const scale = Math.max(...Array.from(coefs[0]!, Math.abs));
-    const diff = (c: Float64Array) => Math.max(...Array.from(c, (v, i) => Math.abs(v - coefs[0]![i]!))) / scale;
-    const cell = (ts: number[], i: number) => (i === 0 ? fmt(ts[0]!) : `${fmt(ts[i]!)} (${(ts[0]! / ts[i]!).toFixed(1)}×)`);
-    console.log(`| ${name} | ${model} | ${[0, 1, 2].map((i) => cell(one, i)).join(' | ')} | ${[0, 1, 2].map((i) => cell(many, i)).join(' | ')} | ${diff(coefs[1]!).toExponential(1)} (${diff(coefs[2]!).toExponential(1)}) |`);
+    let scale = 0;
+    let fusedDiff = 0;
+    for (let i = 0; i < results[0]!.length; i++) {
+      scale = Math.max(scale, Math.abs(results[0]![i]!));
+      fusedDiff = Math.max(fusedDiff, Math.abs(results[2]![i]! - results[0]![i]!));
+    }
+    const equal = results[1]!.every((v, i) => v === results[0]![i]);
+    const fused = fusedDiff / scale;
+    const cell = (i: number) => `${fmt(times[i]!)} (${(times[0]! / times[i]!).toFixed(1)}×)`;
+    console.log(`| ${name} | ${fmt(times[0]!)} | ${cell(1)} | ${cell(2)} | ${equal ? 'yes, bit for bit' : 'no'} | ${fused.toExponential(1)} |`);
   }
 }
 useKernels(null);

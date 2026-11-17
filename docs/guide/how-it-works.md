@@ -1,5 +1,5 @@
 ---
-description: 'How smaltml SIMD writes its WebAssembly from TypeScript, and how its XᵀX kernel works: blocks, tiles and two rows at a time.'
+description: 'How smaltml SIMD writes its WebAssembly from TypeScript, and how its kernels work: blocks, tiles and two rows at a time.'
 ---
 
 # How it works
@@ -17,7 +17,7 @@ instruction:
   that instruction's bytes, with a comment saying which instruction it is.
 - `src/wasm/module.ts`: a module with its own memory, its functions and their exports.
 
-So every byte that runs is written by code in the repository, where it can be read and reviewed. The XᵀX module is
+So every byte that runs is written by code in the repository, where it can be read and reviewed. Each kernel's module is
 about 700 bytes.
 
 <!-- docs:skip -->
@@ -42,6 +42,20 @@ It works as smaltml's own `gramPart` does, and gives its result to rounding:
 Columns are padded with zeros to a multiple of 4, and a block's rows to an even number, so the tiles need no
 remainder loops. Compiled WebAssembly also skips the bounds and type checks the JavaScript engine makes on every
 array read. That is why the kernel runs more than twice as fast, though an `f64x2` carries only two numbers.
+
+## The matrix product
+
+A · B, with A n × p and B p × k, column by column as smaltml keeps them:
+
+1. **A 4 × 4 tile of the output at a time:** four rows, as two `f64x2`, against four columns, so sixteen sums sit in
+   eight registers.
+2. **One step per l, over the whole inner size:** load two pairs from A's column l, splat four of B's values, and
+   make eight multiply-adds.
+3. **Rows padded to a multiple of 4, and the output's columns too,** with zeros, so the tiles need no remainder loops.
+
+Each sum adds its products in the order of l, from 0, as smaltml's own loop does. So under plain SIMD the product is
+smaltml's own bit for bit; only fused multiply-add moves it, within rounding. The gain comes from the tiles: each
+value of A that is loaded serves four columns of the output.
 
 ## Checked twice
 

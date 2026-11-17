@@ -43,5 +43,25 @@ Times are in milliseconds, and each speed-up is against smaltml on the same numb
 - **Coefficients move by at most 9 × 10⁻¹⁴** relative to the largest, and by under 2 × 10⁻¹⁵ outside the logistic
   fits. That is within rounding: smaltml's compare tests against scikit-learn allow 10⁻⁹ to 10⁻⁵.
 
+## 2026-11-17: the matrix product, `matMul`
+
+`node bench/fits.ts --only-matmul`: smaltml's `matMulSync` with smaltml's kernel, plain SIMD and fused multiply-add,
+on one thread. A comes from the same generator, and B has a few columns (as predictions with several targets) or is
+square. Same machine and smaltml as above; median ms of 5 or 9 runs.
+
+| Product | smaltml | SIMD | SIMD, fused | Equal to smaltml, SIMD | Largest difference, fused |
+| --- | ---: | ---: | ---: | --- | ---: |
+| 200k × 50 · 50 × 1 | 40 | 36 (1.1×) | 31 (1.3×) | yes, bit for bit | 4.7e-16 |
+| 200k × 50 · 50 × 3 | 113 | 34 (3.3×) | 34 (3.3×) | yes, bit for bit | 4.1e-16 |
+| 50k × 200 · 200 × 10 | 333 | 82 (4.1×) | 65 (5.2×) | yes, bit for bit | 4.2e-16 |
+| 1,000 × 500 · 500 × 500 | 573 | 91 (6.3×) | 80 (7.2×) | yes, bit for bit | 5.4e-16 |
+
+- **The wider B, the bigger the gain:** each value of A loaded serves four columns of the output. With one column
+  (a single prediction), the time goes to reading A, and SIMD gains little: 1.1 times, 1.3 with fused multiply-add.
+  With 3 columns or more, 3.3 to 6.3 times; fused, up to 7.2.
+- **Plain SIMD gives smaltml's product bit for bit**: each sum adds its products in smaltml's order. Fused
+  multiply-add moves it by under 6 × 10⁻¹⁶ of the largest entry.
+- Nothing in smaltml's fits calls `matMulSync` today, so the fits above don't change with this kernel.
+
 The same results, with the method, are in the repository's
 [bench/README.md](https://github.com/stenhoor/smaltml-simd/blob/main/bench/README.md).

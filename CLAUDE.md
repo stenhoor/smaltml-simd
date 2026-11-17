@@ -50,7 +50,7 @@ Settings → Pages → Source must be **GitHub Actions**.
 | `npm run docs:dev` / `docs:build` | The site (VitePress). Its examples run in place (`docs/.vitepress/theme/simd.ts`); `test/docs.test.ts` checks the table under each, and `UPDATE_DOCS=1 npm test` writes them |
 | `npm run build` | `dist/` and type declarations, emitted by TypeScript 6.0.3 (`tsc`) for one more release (smaltty ADR 0030, decision 5) |
 | `npm run bench` | Times smaltml's fits with smaltml's kernels, the plugin's, and the plugin's with fused multiply-add, on one thread and on several (`bench/fits.ts`). Rerun after kernel work, and update `bench/README.md` |
-| smaltml's tests with the plugin on | From a checkout of smaltml beside this one: `npx vitest run --root . --config ../smaltml-simd/test/smaltml.vitest.config.ts test/compare.test.ts test/parallel.test.ts` (`SMALTML_SIMD_FMA=1` for fused multiply-add). CI runs both |
+| smaltml's tests with the plugin on | From a checkout of smaltml beside this one: `npx vitest run --root . --config ../smaltml-simd/test/smaltml.vitest.config.ts test/compare.test.ts test/parallel.test.ts test/hardware.test.ts` (`SMALTML_SIMD_FMA=1` for fused multiply-add). CI runs both |
 
 ## Rules
 

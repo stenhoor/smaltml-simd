@@ -28,6 +28,9 @@ A promise of smaltml's `KernelSet`:
 - `kernels.gramPart`: XᵀX on WebAssembly SIMD, with smaltml's `gramPart` signature. It takes
   `(X, mean, from, to, weights?, ones?)` and gives the lower triangle of (X − mean)ᵀ diag(weights) (X − mean) over
   rows `from` to `to`, row by row.
+- `kernels.matMul`: A · B on WebAssembly SIMD, with smaltml's `matMul` kernel signature. It takes `(n, p, k, a, b)`,
+  A n × p and B p × k as Float64Arrays column by column, and gives the n × k product, column by column. Under plain
+  SIMD it is smaltml's own result bit for bit.
 - `threads`: the module's own URL, or `kernelsModule`, with the options. This is how smaltml's workers load it.
 
 ## Errors
@@ -53,6 +56,7 @@ kernelsInUse().kernels
 | value |
 | --- |
 | gramPart |
+| matMul |
 
 ## Working demo
 

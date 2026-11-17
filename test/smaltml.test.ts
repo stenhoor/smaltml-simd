@@ -2,7 +2,7 @@
 // several threads equal fitSync, bit for bit (smaltml ADR 0035, items 7 and 8).
 import assert from 'node:assert/strict';
 import { after, afterEach, test } from 'node:test';
-import { kernelsInUse, LinearRegression, LogisticRegression, Matrix, Ridge, stopThreads, useKernels } from '@smaltworks/smaltml';
+import { kernelsInUse, LinearRegression, LogisticRegression, Matrix, matMulSync, Ridge, stopThreads, useKernels } from '@smaltworks/smaltml';
 import { threadPool } from '@smaltworks/smaltml/parallel';
 import { useSimd } from '../src/index.ts';
 
@@ -32,7 +32,7 @@ const near = (a: ArrayLike<number>, b: ArrayLike<number>, rel: number) => {
 
 test('useSimd() replaces gramPart, and useKernels(null) puts smaltml\'s back', async () => {
   assert.equal(await useSimd(), true);
-  assert.deepEqual(kernelsInUse(), { name: 'smaltml-simd', kernels: ['gramPart'], rejected: [] });
+  assert.deepEqual(kernelsInUse(), { name: 'smaltml-simd', kernels: ['gramPart', 'matMul'], rejected: [] });
   useKernels(null);
   assert.equal(kernelsInUse().name, 'smaltml');
   assert.equal(await useSimd({ fusedMultiplyAdd: true }), true);
@@ -70,4 +70,14 @@ test('fits on several threads with the plugin equal fitSync, bit for bit', async
     assert.deepEqual((await new LogisticRegression({ solver: 'newton-cholesky' }).fit(X, labels, { threads: 3 })).toJSON(), lone);
     useKernels(null);
   }
+});
+
+test('matMulSync with the plugin gives smaltml\'s result bit for bit, and fused within rounding', async () => {
+  const A = new Matrix(1001, 7, Float64Array.from({ length: 1001 * 7 }, () => r() * 5));
+  const B = new Matrix(7, 3, Float64Array.from({ length: 21 }, r));
+  const own = matMulSync(A, B).data;
+  await useSimd();
+  assert.deepEqual(matMulSync(A, B).data, own);
+  await useSimd({ fusedMultiplyAdd: true });
+  near(matMulSync(A, B).data, own, 1e-14);
 });

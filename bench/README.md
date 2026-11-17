@@ -44,3 +44,23 @@ smaltml 0.1.0 with smaltml-simd, Node 22.23.4, Intel(R) Xeon(R) Processor @ 2.10
   - The smallest data gains least, since the workers' messages cost about as much as the work.
 - **Fused multiply-add is faster than plain SIMD on most rows of the larger data,** by 5% to 66%. It is 2–3% slower on three of them: Ridge and Lasso at 200,000 × 50 on one thread, and LinearRegression at 50,000 × 200 on 4 threads. Both of those are within the noise. The small data's rows, a few milliseconds each, move the most from run to run.
 - **Coefficients move by at most 9 × 10⁻¹⁴** relative to the largest, and by under 2 × 10⁻¹⁵ on all but the logistic fits. That is within rounding: the compare tests against scikit-learn allow 10⁻⁹ to 10⁻⁵.
+
+## 2026-11-17: the matrix product, `matMul`
+
+`node bench/fits.ts --only-matmul`: smaltml's `matMulSync` with smaltml's kernel, plain SIMD and fused multiply-add,
+on one thread. A comes from the same generator, and B has a few columns (as predictions with several targets) or is
+square. Same machine and smaltml as above; median ms of 5 or 9 runs.
+
+| Product | smaltml | SIMD | SIMD, fused | Equal to smaltml, SIMD | Largest difference, fused |
+| --- | ---: | ---: | ---: | --- | ---: |
+| 200k × 50 · 50 × 1 | 40 | 36 (1.1×) | 31 (1.3×) | yes, bit for bit | 4.7e-16 |
+| 200k × 50 · 50 × 3 | 113 | 34 (3.3×) | 34 (3.3×) | yes, bit for bit | 4.1e-16 |
+| 50k × 200 · 200 × 10 | 333 | 82 (4.1×) | 65 (5.2×) | yes, bit for bit | 4.2e-16 |
+| 1,000 × 500 · 500 × 500 | 573 | 91 (6.3×) | 80 (7.2×) | yes, bit for bit | 5.4e-16 |
+
+- **The wider B, the bigger the gain:** each value of A loaded serves four columns of the output. With one column
+  (a single prediction), the time goes to reading A, and SIMD gains little: 1.1 times, 1.3 with fused multiply-add.
+  With 3 columns or more, 3.3 to 6.3 times; fused, up to 7.2.
+- **Plain SIMD gives smaltml's product bit for bit**: each sum adds its products in smaltml's order. Fused
+  multiply-add moves it by under 6 × 10⁻¹⁶ of the largest entry.
+- Nothing in smaltml's fits calls `matMulSync` today, so the fits above don't change with this kernel.
