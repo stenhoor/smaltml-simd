@@ -1,8 +1,11 @@
 # smaltml SIMD
 
+<a href="https://stenhoor.github.io/smaltml/guide/plugins#smaltml-simd"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/public/official-smaltml-on-dark.svg"><img alt="smaltml official plugin" src="docs/public/official-smaltml.svg" height="28"></picture></a>
 <a href="https://smaltworks.dev/stability"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/public/work-in-progress-on-dark.svg"><img alt="Work in progress. Come build with us." src="docs/public/work-in-progress.svg" height="56"></picture></a>
 
 WebAssembly SIMD kernels for [smaltml](https://github.com/stenhoor/smaltml), written by TypeScript.
+
+[Documentation](https://stenhoor.github.io/smaltml-simd/) · [Playground](https://stenhoor.github.io/smaltml-simd/playground) · [smaltworks.dev](https://smaltworks.dev)
 
 **smaltml SIMD** (`@smaltworks/smaltml-simd`) is an optional plugin. smaltml is TypeScript, and JavaScript has no SIMD:
 its engines run a loop over a `Float64Array` one number at a time. WebAssembly has had 128-bit SIMD in every major
@@ -53,5 +56,7 @@ kernelsInUse(); // { name: 'smaltml-simd', kernels: ['gramPart'], rejected: [] }
 | `npm run check` | Typecheck on TypeScript 7, then the tests (`node --test`) |
 | `npm run build` | `dist/` and type declarations |
 | `npm run bench` | Times smaltml's fits with and without the plugin ([bench/README.md](bench/README.md)) |
+| `npm run test:browser` | Builds the site and runs every playground in headless Chromium |
+| `npm run docs:dev` / `docs:build` | The site |
 
 Node 22.18 or later. MIT licence. Part of the [smaltworks](https://smaltworks.dev) family.

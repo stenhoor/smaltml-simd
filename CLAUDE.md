@@ -24,12 +24,17 @@ platform's one route to it. It holds only while all five circumstances there hol
 
 An infrastructure plugin (ADR 0035, item 10; smalt-brand BRAND.md, "Plugins"): smaltml's brand and a plain name,
 "smaltml SIMD", with no mark or colour of its own. Its README carries the Official plugin badge with smaltml's mark,
-once smalt-brand has one (today's plugin badges are smaltdb's only). Copy brand files unchanged from smalt-brand.
+(smalt-brand `badges/plugins/official-smaltml.svg`), linking to smaltml's Plugins page. Copy brand files unchanged
+from smalt-brand: the site kit (`docs/.vitepress/theme/{shiki.ts,smaltdb.css,smaltworks.ts,stage.ts,playground.ts,agents.ts}`
+from `themes/vitepress/`), smaltml's logos (`logos/smaltml/`) and the badges, into `docs/public/`.
 
 ## Workflow
 
 The family's rules: one task per branch and pull request; open it once CI passes; the owner merges. Before pushing,
-`npm run check`.
+`npm run check`, and `npm run test:browser` when the docs or the runner change.
+
+The site (https://stenhoor.github.io/smaltml-simd/) deploys from `.github/workflows/docs.yml` only: the repository's
+Settings → Pages → Source must be **GitHub Actions**.
 
 - **Facts only.** Don't tell the owner something you haven't confirmed. Label everything else as an assumption, in
   those words, with what would confirm it.
@@ -41,6 +46,8 @@ The family's rules: one task per branch and pull request; open it once CI passes
 | --- | --- |
 | `npm ci` | Installs dependencies, and builds `dist/` |
 | `npm run check` | Typecheck (TypeScript 7, the `typescript7` dev dependency), then the tests (`node --test`, on the TypeScript source: Node 22.18 and later strip its types) |
+| `npm run test:browser` | Builds the site and presses Run on every playground in headless Chromium (`test/browser/docs.mjs`). CI runs it |
+| `npm run docs:dev` / `docs:build` | The site (VitePress). Its examples run in place (`docs/.vitepress/theme/simd.ts`); `test/docs.test.ts` checks the table under each, and `UPDATE_DOCS=1 npm test` writes them |
 | `npm run build` | `dist/` and type declarations, emitted by TypeScript 6.0.3 (`tsc`) for one more release (smaltty ADR 0030, decision 5) |
 | `npm run bench` | Times smaltml's fits with smaltml's kernels, the plugin's, and the plugin's with fused multiply-add, on one thread and on several (`bench/fits.ts`). Rerun after kernel work, and update `bench/README.md` |
 | smaltml's tests with the plugin on | From a checkout of smaltml beside this one: `npx vitest run --root . --config ../smaltml-simd/test/smaltml.vitest.config.ts test/compare.test.ts test/parallel.test.ts` (`SMALTML_SIMD_FMA=1` for fused multiply-add). CI runs both |
@@ -63,7 +70,12 @@ The family's rules: one task per branch and pull request; open it once CI passes
   its last bits can differ between processors (ADR 0035, item 6).
 - **No number without its benchmark.** A speed claim names the benchmark that measured it, which anyone can rerun.
 - **Dependencies:** smaltml is a peer dependency, pinned to a commit for development, as the family pins its git
-  dependencies. No runtime dependencies. Ask the owner before adding any other package.
+  dependencies. No runtime dependencies. Dev dependencies: TypeScript (6.0.3 and 7), `@types/node`, and for the site
+  vitepress, smaltkit (pinned to a commit) and playwright (1.64.1, CI's version), the owner's yes on 2026-11-17. Ask
+  the owner before adding any other package.
+- **Every ```` ```ts ```` block in `docs/` runs where it stands,** in the kit's playground with this site's runner.
+  A tested result can't hold a time: timings differ from run to run, so pages show them only when a reader edits an
+  example. `<!-- docs:skip -->` marks a block that isn't run (signatures, sketches).
 - **Layout:** `src/wasm/` writes WebAssembly (encodings, instructions, modules); `src/kernels/` holds one kernel per
   file, its module and the JavaScript that feeds it; `src/kernels.ts` is the kernel set, and the module smaltml's
   thread pool workers import, so it imports nothing from smaltml; `src/index.ts` is `useSimd()`.
