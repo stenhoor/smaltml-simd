@@ -42,6 +42,8 @@ The family's rules: one task per branch and pull request; open it once CI passes
 | `npm ci` | Installs dependencies, and builds `dist/` |
 | `npm run check` | Typecheck (TypeScript 7, the `typescript7` dev dependency), then the tests (`node --test`, on the TypeScript source: Node 22.18 and later strip its types) |
 | `npm run build` | `dist/` and type declarations, emitted by TypeScript 6.0.3 (`tsc`) for one more release (smaltty ADR 0030, decision 5) |
+| `npm run bench` | Times smaltml's fits with smaltml's kernels, the plugin's, and the plugin's with fused multiply-add, on one thread and on several (`bench/fits.ts`). Rerun after kernel work, and update `bench/README.md` |
+| smaltml's tests with the plugin on | From a checkout of smaltml beside this one: `npx vitest run --root . --config ../smaltml-simd/test/smaltml.vitest.config.ts test/compare.test.ts test/parallel.test.ts` (`SMALTML_SIMD_FMA=1` for fused multiply-add). CI runs both |
 
 ## Rules
 
@@ -62,4 +64,12 @@ The family's rules: one task per branch and pull request; open it once CI passes
 - **No number without its benchmark.** A speed claim names the benchmark that measured it, which anyone can rerun.
 - **Dependencies:** smaltml is a peer dependency, pinned to a commit for development, as the family pins its git
   dependencies. No runtime dependencies. Ask the owner before adding any other package.
+- **Layout:** `src/wasm/` writes WebAssembly (encodings, instructions, modules); `src/kernels/` holds one kernel per
+  file, its module and the JavaScript that feeds it; `src/kernels.ts` is the kernel set, and the module smaltml's
+  thread pool workers import, so it imports nothing from smaltml; `src/index.ts` is `useSimd()`.
+  `scripts/bundle.mjs`, our own, writes `dist/smaltml-simd-kernels.js`: that module and what it imports, in one file,
+  for apps whose bundler folds the plugin in. It takes only the plain imports and exports tsc emits, and fails on
+  anything else.
+- **A new kernel** needs smaltml's contract to name it first (smaltml's `useKernels`), tests against plain loops on odd
+  sizes (`test/`), a row in the benchmark, and the compare tests passing with it on.
 - A significant decision gets an ADR, numbered in the family's sequence (smaltworks `adr/README.md`).

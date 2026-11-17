@@ -11,25 +11,38 @@ models, as WebAssembly SIMD, and smaltml uses them where the app turns the plugi
 runs exactly as before. The kernels are TypeScript functions that write the WebAssembly bytes when they run: no
 toolchain, no `.wasm` file, nothing loaded from another site.
 
-> **Status: 0.14.0, work in progress.** The repository is set up; the kernels come next
-> ([ADR 0035](https://github.com/stenhoor/smaltml/blob/main/docs/adr/0035-simd-kernels-in-a-plugin.md), step 4).
-> Today it reports what the engine supports:
+> **Status: 0.14.0, work in progress.** The first kernel, XᵀX (smaltml's `gramPart`), is in; the matrix product
+> comes next ([ADR 0035](https://github.com/stenhoor/smaltml/blob/main/docs/adr/0035-simd-kernels-in-a-plugin.md),
+> step 4).
+
+## Use
 
 ```ts
-import { simdSupport } from '@smaltworks/smaltml-simd';
+import { useSimd } from '@smaltworks/smaltml-simd';
+import { Ridge, kernelsInUse } from '@smaltworks/smaltml';
 
-simdSupport(); // { simd: true, relaxed: true } in Node 22; relaxed is false in browsers without relaxed SIMD
+await useSimd(); // true where WebAssembly SIMD is available; smaltml's own kernels otherwise
+const model = await new Ridge().fit(X, y); // XᵀX on SIMD, here and on smaltml's threads
+kernelsInUse(); // { name: 'smaltml-simd', kernels: ['gramPart'], rejected: [] }
 ```
 
-## What it will change, and what it won't
+- `useSimd({ fusedMultiplyAdd: true })` uses relaxed SIMD's fused multiply-add where the engine has it: faster, and
+  its last bits can differ between processors. Off by default.
+- `useKernels(null)`, from smaltml, turns the plugin off.
+- smaltml checks each kernel against its own when the plugin turns on, and doesn't use one that disagrees.
+- smaltml's thread pool workers load the same kernels, from this package's `dist/kernels.js`
+  (`@smaltworks/smaltml-simd/kernels`), so a fit on several threads still gives exactly what `fitSync` gives. Where a
+  bundler has folded that module into the app's bundle, the workers can't load it, and smaltml keeps fits on one
+  thread, with the same result. For those apps, copy `dist/smaltml-simd-kernels.js` (the same module in one file, with
+  no imports) beside the app, and give its URL: `useSimd({ kernelsModule: '/assets/smaltml-simd-kernels.js' })`.
+- `simdSupport()` says whether the engine has WebAssembly SIMD and relaxed SIMD.
 
-From ADR 0035, to be measured by this repository's benchmark as each kernel lands:
+## What it changes, and what it doesn't
 
 - **Speed:** the fits built on XᵀX (LinearRegression, Ridge, Lasso, ElasticNet, LogisticRegression with
-  `newton-cholesky`). A probe of the first kernel ran 3.5 to 5 times as fast as smaltml's TypeScript, on one machine;
-  its benchmark moves here with that kernel.
+  `newton-cholesky`). See [the benchmark](bench/README.md) for each model, on one thread and several.
 - **The last bits:** SIMD sums in another order, so results are close to smaltml's own, not equal. Agreement with
-  scikit-learn doesn't change: smaltml's compare tests run with the plugin on.
+  scikit-learn doesn't change: CI runs smaltml's compare tests with the plugin on.
 - **Not the models or the API.** Saved models are the same either way; fits on several threads still equal `fitSync`.
 
 ## Develop
@@ -39,5 +52,6 @@ From ADR 0035, to be measured by this repository's benchmark as each kernel land
 | `npm ci` | Installs dependencies, and builds `dist/` |
 | `npm run check` | Typecheck on TypeScript 7, then the tests (`node --test`) |
 | `npm run build` | `dist/` and type declarations |
+| `npm run bench` | Times smaltml's fits with and without the plugin ([bench/README.md](bench/README.md)) |
 
 Node 22.18 or later. MIT licence. Part of the [smaltworks](https://smaltworks.dev) family.
