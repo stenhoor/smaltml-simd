@@ -5,6 +5,7 @@
  */
 import type { KernelSet } from '@smaltworks/smaltml/core';
 import { gramModule, SimdGram } from './kernels/gram.ts';
+import { matMulModule, SimdMatMul } from './kernels/matmul.ts';
 import { simdSupport } from './support.ts';
 
 /** How the plugin runs. */
@@ -32,18 +33,23 @@ export function setName(fused: boolean): string {
 }
 
 /**
- * The kernel set: gramPart on WebAssembly SIMD, compiled here. Fused multiply-add only when asked for and the engine
+ * The kernel set: gramPart (XᵀX) and matMul (A · B) on WebAssembly SIMD, compiled here. Fused multiply-add only when asked for and the engine
  * has relaxed SIMD. Fails where the engine has no WebAssembly SIMD; useSimd() checks that first.
  */
 export default async function kernelSet(options: SimdOptions = {}): Promise<KernelSet> {
   const support = simdSupport();
   if (!support.simd) throw new Error("this engine's WebAssembly has no SIMD");
   const fused = !!options.fusedMultiplyAdd && support.relaxed;
-  const gram = new SimdGram(await WebAssembly.compile(gramModule(fused)));
+  const [gramMod, matMulMod] = await Promise.all([WebAssembly.compile(gramModule(fused)), WebAssembly.compile(matMulModule(fused))]);
+  const gram = new SimdGram(gramMod);
+  const product = new SimdMatMul(matMulMod);
   return {
     name: setName(fused),
     version: KERNELS_VERSION,
-    kernels: { gramPart: (X, mean, from, to, weights, ones) => gram.gramPart(X, mean, from, to, weights, ones) },
+    kernels: {
+      gramPart: (X, mean, from, to, weights, ones) => gram.gramPart(X, mean, from, to, weights, ones),
+      matMul: (n, p, k, a, b) => product.matMul(n, p, k, a, b),
+    },
     threads: { module: options.kernelsModule ?? import.meta.url, options: { fusedMultiplyAdd: fused } },
   };
 }

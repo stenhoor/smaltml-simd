@@ -14,9 +14,8 @@ models, as WebAssembly SIMD, and smaltml uses them where the app turns the plugi
 runs exactly as before. The kernels are TypeScript functions that write the WebAssembly bytes when they run: no
 toolchain, no `.wasm` file, nothing loaded from another site.
 
-> **Status: 0.14.0, work in progress.** The first kernel, XᵀX (smaltml's `gramPart`), is in; the matrix product
-> comes next ([ADR 0035](https://github.com/stenhoor/smaltml/blob/main/docs/adr/0035-simd-kernels-in-a-plugin.md),
-> step 4).
+> **Status: 0.14.0, work in progress.** Both kernels of [ADR 0035](https://github.com/stenhoor/smaltml/blob/main/docs/adr/0035-simd-kernels-in-a-plugin.md)'s
+> step 4 are in: XᵀX (smaltml's `gramPart`) and the matrix product (`matMul`).
 
 ## Use
 
@@ -26,7 +25,7 @@ import { Ridge, kernelsInUse } from '@smaltworks/smaltml';
 
 await useSimd(); // true where WebAssembly SIMD is available; smaltml's own kernels otherwise
 const model = await new Ridge().fit(X, y); // XᵀX on SIMD, here and on smaltml's threads
-kernelsInUse(); // { name: 'smaltml-simd', kernels: ['gramPart'], rejected: [] }
+kernelsInUse(); // { name: 'smaltml-simd', kernels: ['gramPart', 'matMul'], rejected: [] }
 ```
 
 - `useSimd({ fusedMultiplyAdd: true })` uses relaxed SIMD's fused multiply-add where the engine has it: faster, and
@@ -43,7 +42,7 @@ kernelsInUse(); // { name: 'smaltml-simd', kernels: ['gramPart'], rejected: [] }
 ## What it changes, and what it doesn't
 
 - **Speed:** the fits built on XᵀX (LinearRegression, Ridge, Lasso, ElasticNet, LogisticRegression with
-  `newton-cholesky`). See [the benchmark](bench/README.md) for each model, on one thread and several.
+  `newton-cholesky`), and smaltml's matrix product on the CPU (`matMulSync`, and `matMul` off the GPU). See [the benchmark](bench/README.md) for each model, on one thread and several.
 - **The last bits:** SIMD sums in another order, so results are close to smaltml's own, not equal. Agreement with
   scikit-learn doesn't change: CI runs smaltml's compare tests with the plugin on.
 - **Not the models or the API.** Saved models are the same either way; fits on several threads still equal `fitSync`.
