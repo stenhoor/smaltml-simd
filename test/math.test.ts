@@ -26,12 +26,18 @@ function apply(emit: Emit): (xs: Float64Array) => Float64Array {
   c.br(0).end().end();
   const mod = new ModuleBuilder().memory(1).func('f', [I32], [], c).encode();
   assert.ok(WebAssembly.validate(mod));
-  const ex = new WebAssembly.Instance(new WebAssembly.Module(mod)).exports as { memory: WebAssembly.Memory; f(count: number): void };
+  const compiled = new WebAssembly.Module(mod);
+  // The module imports its memory: a new, larger one where more is needed, as the kernels do (src/kernels/room.ts).
+  let memory = new WebAssembly.Memory({ initial: 1 });
+  let ex = new WebAssembly.Instance(compiled, { env: { memory } }).exports as { f(count: number): void };
   return (xs) => {
     const n = xs.length + (xs.length & 1);
     const need = n * 8;
-    if (ex.memory.buffer.byteLength < need) ex.memory.grow(Math.ceil((need - ex.memory.buffer.byteLength) / 65536));
-    const mem = new Float64Array(ex.memory.buffer, 0, n);
+    if (memory.buffer.byteLength < need) {
+      memory = new WebAssembly.Memory({ initial: Math.ceil(need / 65536) });
+      ex = new WebAssembly.Instance(compiled, { env: { memory } }).exports as { f(count: number): void };
+    }
+    const mem = new Float64Array(memory.buffer, 0, n);
     mem.fill(0);
     mem.set(xs);
     ex.f(n);

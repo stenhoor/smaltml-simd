@@ -1,5 +1,5 @@
 /**
- * A WebAssembly module: functions, one memory of its own, and exports (the WebAssembly Core Specification, section
+ * A WebAssembly module: functions, a memory it imports, and exports (the WebAssembly Core Specification, section
  * 5.5, "Modules"). The plugin's kernels build theirs with it.
  */
 import type { Code } from './code.ts';
@@ -16,7 +16,10 @@ export class ModuleBuilder {
   readonly #funcs: Func[] = [];
   #memoryPages = 0;
 
-  /** A memory of `pages` 64 KiB pages to start with, exported as `memory`; JavaScript grows it as needed. */
+  /**
+   * A memory of at least `pages` 64 KiB pages, imported as `env.memory`: JavaScript gives the instance one, and a
+   * larger one with a new instance where it needs more (src/kernels/room.ts), never growing it.
+   */
   memory(pages: number): this {
     this.#memoryPages = pages;
     return this;
@@ -28,20 +31,21 @@ export class ModuleBuilder {
     return this;
   }
 
-  /** The module's bytes: header, then the type, function, memory, export and code sections, in the order required. */
+  /** The module's bytes: header, then the type, import, function, export and code sections, in the order required. */
   encode(): Uint8Array<ArrayBuffer> {
     const types = vec(this.#funcs.map((f) => [0x60, ...vec(f.params.map((t) => [t])), ...vec(f.results.map((t) => [t]))]));
     const funcs = vec(this.#funcs.map((_, i) => u32(i)));
     const exports = vec([
       ...this.#funcs.map((f, i) => [...name(f.name), 0x00, ...u32(i)]),
-      ...(this.#memoryPages ? [[...name('memory'), 0x02, ...u32(0)]] : []),
     ]);
+    // The memory, imported: env.memory, kind 2 (memory), limits with a minimum only.
+    const imports = vec(this.#memoryPages ? [[...name('env'), ...name('memory'), 0x02, 0x00, ...u32(this.#memoryPages)]] : []);
     const bytes = [
       0x00, 0x61, 0x73, 0x6d, // "\0asm"
       0x01, 0x00, 0x00, 0x00, // version 1
       ...section(1, types),
+      ...(this.#memoryPages ? section(2, imports) : []),
       ...section(3, funcs),
-      ...(this.#memoryPages ? section(5, vec([[0x00, ...u32(this.#memoryPages)]])) : []), // limits: a minimum only
       ...section(7, exports),
       ...section(10, vec(this.#funcs.map((f) => f.code.encode()))),
     ];

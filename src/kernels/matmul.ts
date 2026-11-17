@@ -11,6 +11,7 @@
  * bit for bit (smaltml's skips a product whose B value is 0, which changes nothing unless A holds an infinity or NaN).
  * Fused multiply-add rounds once per step instead of twice.
  */
+import { Room } from './room.ts';
 import { Code } from '../wasm/code.ts';
 import { I32, V128 } from '../wasm/encode.ts';
 import { ModuleBuilder } from '../wasm/module.ts';
@@ -78,26 +79,19 @@ export function matMulModule(fused: boolean): Uint8Array<ArrayBuffer> {
 }
 
 interface MatMulExports {
-  memory: WebAssembly.Memory;
   matmul(a: number, b: number, out: number, n: number, p: number, k: number): void;
 }
 
 /** One compiled matmul module, its memory and the JavaScript that fills it: a matMul with smaltml's signature. */
 export class SimdMatMul {
-  readonly #exports: MatMulExports;
-  #f64: Float64Array;
+  readonly #room: Room<MatMulExports>;
 
   constructor(module: WebAssembly.Module) {
-    this.#exports = new WebAssembly.Instance(module).exports as unknown as MatMulExports;
-    this.#f64 = new Float64Array(this.#exports.memory.buffer);
+    this.#room = new Room(module);
   }
 
   #reserve(bytes: number): Float64Array {
-    const memory = this.#exports.memory;
-    const have = memory.buffer.byteLength;
-    if (have < bytes) memory.grow(Math.ceil((bytes - have) / 65536));
-    if (this.#f64.buffer !== memory.buffer || this.#f64.length * 8 !== memory.buffer.byteLength) this.#f64 = new Float64Array(memory.buffer);
-    return this.#f64;
+    return this.#room.reserve(bytes);
   }
 
   /** smaltml's matMul kernel: A (n × p) · B (p × k), column by column, as an n × k Float64Array, column by column. */
@@ -121,7 +115,7 @@ export class SimdMatMul {
     }
     mem.set(b, bAt);
     mem.fill(0, bAt + p * k, bAt + p * kk); // B's padding columns
-    this.#exports.matmul(aAt * 8, bAt * 8, outAt * 8, nn, p, kk);
+    this.#room.exports.matmul(aAt * 8, bAt * 8, outAt * 8, nn, p, kk);
     if (nn === n) out.set(mem.subarray(outAt, outAt + n * k));
     else for (let j = 0; j < k; j++) out.set(mem.subarray(outAt + j * nn, outAt + j * nn + n), j * n);
     return out;

@@ -8,6 +8,7 @@
  * remainder loops. The sums run in another order than smaltml's (even rows and odd rows apart, then added), so results
  * agree in all but the last bits.
  */
+import { Room } from './room.ts';
 import { Code } from '../wasm/code.ts';
 import { F64, I32, V128 } from '../wasm/encode.ts';
 import { ModuleBuilder } from '../wasm/module.ts';
@@ -91,27 +92,19 @@ export function gramModule(fused: boolean): Uint8Array<ArrayBuffer> {
 }
 
 interface GramExports {
-  memory: WebAssembly.Memory;
   gram(buf: number, stride: number, mbytes: number, pp: number, out: number): void;
 }
 
 /** One compiled gram module, its memory and the JavaScript that fills it: a gramPart() with smaltml's signature. */
 export class SimdGram {
-  readonly #exports: GramExports;
-  #f64: Float64Array;
+  readonly #room: Room<GramExports>;
 
   constructor(module: WebAssembly.Module) {
-    this.#exports = new WebAssembly.Instance(module).exports as unknown as GramExports;
-    this.#f64 = new Float64Array(this.#exports.memory.buffer);
+    this.#room = new Room(module);
   }
 
-  /** At least `bytes` of memory, and a view of all of it. */
   #reserve(bytes: number): Float64Array {
-    const memory = this.#exports.memory;
-    const have = memory.buffer.byteLength;
-    if (have < bytes) memory.grow(Math.ceil((bytes - have) / 65536));
-    if (this.#f64.buffer !== memory.buffer || this.#f64.length * 8 !== memory.buffer.byteLength) this.#f64 = new Float64Array(memory.buffer);
-    return this.#f64;
+    return this.#room.reserve(bytes);
   }
 
   /** smaltml's gramPart(), on SIMD: the p × p lower triangle (p = columns, + 1 with `ones`), row by row. */
@@ -145,7 +138,7 @@ export class SimdGram {
         else mem.fill(1, bj, bj + m);
         if (even > m) mem[bj + m] = 0;
       }
-      this.#exports.gram(0, B * 8, even * 8, pp, outAt * 8);
+      this.#room.exports.gram(0, B * 8, even * 8, pp, outAt * 8);
     }
     for (let j = 0; j < p; j++) for (let k = 0; k <= j; k++) A[j * p + k] = mem[outAt + j * pp + k]!;
     return A;
