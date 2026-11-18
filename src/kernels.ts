@@ -8,7 +8,7 @@ import { gramModule, SimdGram } from './kernels/gram.ts';
 import { logisticModule, SimdLogistic } from './kernels/logistic.ts';
 import { matMulModule, SimdMatMul } from './kernels/matmul.ts';
 import { productsModule, SimdProducts } from './kernels/products.ts';
-import { simdSupport } from './support.ts';
+import { simdSupport } from 'smaltkit/simd';
 
 /** How the plugin runs. */
 export interface SimdOptions {

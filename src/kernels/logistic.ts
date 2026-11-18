@@ -2,7 +2,7 @@
  * The logistic objectives' row steps on WebAssembly SIMD (smaltml's binaryLogisticRows and multinomialLogisticRows):
  * for a block of rows' scores z, the loss they add, and z replaced by the residuals the gradient needs. smaltml's own
  * calls Math.exp, Math.log1p and Math.log once or more per row; these run two rows at a time with the plugin's own
- * f64x2 exp, log1p and log (src/wasm/math.ts), within a few rounding steps of them.
+ * f64x2 exp, log1p and log (smaltkit/simd's simdMath), within a few rounding steps of them.
  *
  * Binary, per row, with weight w and label y ∈ {0, 1}, and e = exp(−|z|):
  *   loss += w · (max(z, 0) + ln(1 + e) − y·z)            (−log p(y), as smaltml's log1pExp gives it)
@@ -11,11 +11,7 @@
  *   loss += w · (max + ln Σ e_c − z_y), e_c = exp(z_c − max)
  *   z_c   = w · (e_c / Σ e − [c = y])
  */
-import { Room } from './room.ts';
-import { Code } from '../wasm/code.ts';
-import { F64, I32, V128 } from '../wasm/encode.ts';
-import { exp, log1p, logAtLeast1 } from '../wasm/math.ts';
-import { ModuleBuilder } from '../wasm/module.ts';
+import { Code, F64, I32, ModuleBuilder, Room, simdMath, V128 } from 'smaltkit/simd';
 
 /** `binary(z, y, w, mbytes) → loss`: z, y and w are f64 arrays at those addresses, mbytes / 8 rows (an even number). */
 function binary(fused: boolean): Code {
@@ -38,8 +34,8 @@ function binary(fused: boolean): Code {
   c.get(Y).get(i).i32Add().v128Load().set(y);
   c.get(W).get(i).i32Add().v128Load().set(w);
   c.get(z).f64x2Abs().f64x2Neg().set(negAbs);
-  exp(c, negAbs, e);
-  log1p(c, e, l1);
+  simdMath.exp(c, negAbs, e);
+  simdMath.log1p(c, e, l1);
   // loss += w · (max(z, 0) + l1 − y·z)
   if (fused) {
     // max(z, 0) + l1 − y·z = (−y)·z + (max(z, 0) + l1), fused
@@ -108,12 +104,12 @@ function softmax(): Code {
   c.v128Zero().set(sum);
   classes(() => {
     c.get(at).v128Load().get(max).f64x2Sub().set(zc);
-    exp(c, zc, ec);
+    simdMath.exp(c, zc, ec);
     c.get(at).get(ec).v128Store();
     c.get(sum).get(ec).f64x2Add().set(sum);
   });
   // loss += w · (max + ln Σe − z_y)
-  logAtLeast1(c, sum, lnSum);
+  simdMath.logAtLeast1(c, sum, lnSum);
   c.get(loss).get(w).get(max).get(lnSum).f64x2Add().get(zy).f64x2Sub().f64x2Mul().f64x2Add().set(loss);
   // z_c = w · (e_c / Σe − [c = y])
   c.f64x2Const(1).get(sum).f64x2Div().set(inv);

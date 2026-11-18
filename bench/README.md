@@ -124,7 +124,7 @@ TypeScript: they check results, not times.
 Until this change, a kernel grew its WebAssembly memory where a block needed more than it had (`Memory.grow`). Growing
 detaches the old buffer, and that slows the same loops, in the whole process or worker, for good: the probe loop took
 9–10 ms before a grow and 21–37 ms after. Creating a new memory doesn't. Each kernel now keeps its memory and, where it
-needs more, makes a new, larger one with a new instance (`src/kernels/room.ts`); `test/wasm.test.ts` checks that a
+needs more, makes a new, larger one with a new instance (`Room`, now in `smaltkit/simd`); `test/memory.test.ts` checks that a
 large `gramPart` and `matMul` never call `grow`.
 
 `bench/after-simd.ts` measures what it did to the code that runs after a SIMD fit: a Ridge fit (the plugin's

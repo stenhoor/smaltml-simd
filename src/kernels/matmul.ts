@@ -11,10 +11,7 @@
  * bit for bit (smaltml's skips a product whose B value is 0, which changes nothing unless A holds an infinity or NaN).
  * Fused multiply-add rounds once per step instead of twice.
  */
-import { Room } from './room.ts';
-import { Code } from '../wasm/code.ts';
-import { I32, V128 } from '../wasm/encode.ts';
-import { ModuleBuilder } from '../wasm/module.ts';
+import { Code, I32, ModuleBuilder, Room, V128 } from 'smaltkit/simd';
 
 /**
  * The module: one function, `matmul(a, b, out, n, p, k)`. `a` is n × p (n a multiple of 4), `b` is p × k (k a

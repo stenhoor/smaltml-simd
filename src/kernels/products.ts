@@ -9,10 +9,7 @@
  * to a multiple of 4, so the loops need no remainders. X·w adds each row's four products in smaltml's order; Xᵀr
  * sums even and odd rows apart, then adds them, so results agree with smaltml's in all but the last bits.
  */
-import { Room } from './room.ts';
-import { Code } from '../wasm/code.ts';
-import { I32, V128 } from '../wasm/encode.ts';
-import { ModuleBuilder } from '../wasm/module.ts';
+import { Code, I32, ModuleBuilder, Room, V128 } from 'smaltkit/simd';
 
 /** Rows per block, as smaltml's. */
 const BLOCK = 512;

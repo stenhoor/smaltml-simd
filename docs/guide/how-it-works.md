@@ -10,14 +10,15 @@ The smalt family is TypeScript. The plugin is the one place smaltml uses WebAsse
 route to SIMD (smaltml [ADR 0035](https://stenhoor.github.io/smaltml/adr/0035-simd-kernels-in-a-plugin);
 smaltworks' rule "WebAssembly: plugins only"). Even so, the plugin has no WebAssembly source file, no compiler and no
 `.wasm` file. Each kernel is a TypeScript function that writes the module's bytes when it runs, instruction by
-instruction:
+instruction, with smaltkit's WebAssembly writer, `smaltkit/simd`:
 
-- `src/wasm/encode.ts`: the binary format's numbers (LEB128), names, vectors and sections.
-- `src/wasm/code.ts`: one method per instruction a kernel uses, such as `v128Load()` or `f64x2Mul()`. Each writes
-  that instruction's bytes, with a comment saying which instruction it is.
-- `src/wasm/module.ts`: a module with its own memory, its functions and their exports.
+- `encode`: the binary format's numbers (LEB128), names, vectors and sections.
+- `Code`: one method per instruction a kernel uses, such as `v128Load()` or `f64x2Mul()`. Each writes that
+  instruction's bytes, with a comment saying which instruction it is.
+- `ModuleBuilder`: a module whose memory JavaScript gives it, its functions and their exports.
+- `Room`: a module's memory, and a new, larger one with a new instance where a call needs more, never growing one.
 
-So every byte that runs is written by code in the repository, where it can be read and reviewed. Each kernel's module is
+So every byte that runs is written by our own code, here and in smaltkit, where it can be read and reviewed. Each kernel's module is
 about 700 bytes.
 
 <!-- docs:skip -->
@@ -60,7 +61,7 @@ value of A that is loaded serves four columns of the output.
 ## exp, log1p and log, our own
 
 The logistic row kernels need exp, log1p and log on two rows at a time, and WebAssembly has no SIMD instruction for
-any of them. The plugin writes its own (`src/wasm/math.ts`), each from its definition:
+any of them. smaltkit/simd's `simdMath` has our own, each from its definition:
 
 - **exp(x)**, for x ≤ 0 (the logistic objectives only take exp(−|z|) and exp(z − max)): x = k · ln 2 + r with
   |r| ≤ ln2/2, so eˣ = 2ᵏ · eʳ. eʳ is its Taylor series to r¹³, and 2ᵏ is built from its bits. Below −708, 0.

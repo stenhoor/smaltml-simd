@@ -8,10 +8,7 @@
  * remainder loops. The sums run in another order than smaltml's (even rows and odd rows apart, then added), so results
  * agree in all but the last bits.
  */
-import { Room } from './room.ts';
-import { Code } from '../wasm/code.ts';
-import { F64, I32, V128 } from '../wasm/encode.ts';
-import { ModuleBuilder } from '../wasm/module.ts';
+import { Code, F64, I32, ModuleBuilder, Room, V128 } from 'smaltkit/simd';
 
 /** Rows per block, as smaltml's: 512 rows of up to a few hundred columns stay within a CPU's second-level cache. */
 export const BLOCK = 512;

@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { productsModule, SimdProducts } from '../src/kernels/products.ts';
-import { simdSupport } from '../src/support.ts';
+import { simdSupport } from 'smaltkit/simd';
 
 /** A seeded stream in [0, 1). */
 function stream(seed: number) {

@@ -55,9 +55,11 @@
     "@smaltworks/smaltml": "github:stenhoor/smaltml#1852dd470ec50700a4d86c2094a710ed54f5a654",
     "@types/node": "^22.20.5",
     "playwright": "1.64.1",
-    "smaltkit": "github:stenhoor/smaltkit#dec0f7e08d1cb3649126b355c921a7f48b88edd9",
     "typescript": "~6.0.3",
     "typescript7": "npm:typescript@~7.0.2",
     "vitepress": "1.6.4"
+  },
+  "dependencies": {
+    "smaltkit": "github:stenhoor/smaltkit#b11282580619cac9f2d68cb69203fdb770e9a350"
   }
 }

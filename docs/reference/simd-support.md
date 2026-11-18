@@ -33,8 +33,8 @@ None. Where there is no WebAssembly at all, both are `false`.
 ## Notes
 
 It compiles and runs nothing. It asks the engine to validate two modules of a few bytes, each using one instruction:
-`v128.const` for SIMD, and `f64x2.relaxed_madd` for relaxed SIMD. The plugin writes their bytes out one by one, in
-`src/support.ts`. `useSimd()` calls it first.
+`v128.const` for SIMD, and `f64x2.relaxed_madd` for relaxed SIMD. Their bytes are written out one by one in smaltkit's
+`smaltkit/simd`, whose `simdSupport` the plugin gives as its own. `useSimd()` calls it first.
 
 ## Examples
 

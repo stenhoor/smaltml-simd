@@ -58,8 +58,9 @@ Settings → Pages → Source must be **GitHub Actions**.
 
 - **TypeScript writes the WebAssembly** (ADR 0035, item 5). Kernels are TypeScript functions that emit the module's
   bytes at run time: no compiler toolchain, no `.wasm` file, nothing loaded from another site. Every instruction is
-  written by code in this repository, with a comment that says what it is. Rust was considered on 2026-11-17 and not
-  chosen; changing that is an amendment to ADR 0035.
+  written by our own code, with a comment that says what it is: the kernels here, through smaltkit's WebAssembly
+  writer, `smaltkit/simd` (moved there from this repository's `src/wasm/`, the owner's decision 2026-11-18). Rust
+  was considered on 2026-11-17 and not chosen; changing that is an amendment to ADR 0035.
 - **Erasable TypeScript only** (`erasableSyntaxOnly`): no enums, namespaces or parameter properties, so Node runs the
   source as it is. Relative imports name the `.ts` file; the build rewrites them to `.js`.
 - **smaltml's kernel contract is the interface.** The plugin replaces kernels only through smaltml's `useKernels`, with
@@ -72,19 +73,19 @@ Settings → Pages → Source must be **GitHub Actions**.
   its last bits can differ between processors (ADR 0035, item 6).
 - **No number without its benchmark.** A speed claim names the benchmark that measured it, which anyone can rerun.
 - **Dependencies:** smaltml is a peer dependency, pinned to a commit for development, as the family pins its git
-  dependencies. No runtime dependencies. Dev dependencies: TypeScript (6.0.3 and 7), `@types/node`, and for the site
-  vitepress, smaltkit (pinned to a commit) and playwright (1.64.1, CI's version), the owner's yes on 2026-11-17. Ask
-  the owner before adding any other package.
+  dependencies. One runtime dependency: smaltkit, the family's shared kit, pinned to a commit, for `smaltkit/simd`
+  (the owner, 2026-11-18). Dev dependencies: TypeScript (6.0.3 and 7), `@types/node`, and for the site vitepress and
+  playwright (1.64.1, CI's version), the owner's yes on 2026-11-17. Ask the owner before adding any other package.
 - **Every ```` ```ts ```` block in `docs/` runs where it stands,** in the kit's playground with this site's runner.
   A tested result can't hold a time: timings differ from run to run, so pages show them only when a reader edits an
   example. `<!-- docs:skip -->` marks a block that isn't run (signatures, sketches).
-- **Layout:** `src/wasm/` writes WebAssembly (encodings, instructions, modules, and `math.ts`: our own f64x2 exp,
-  log1p and ln, with their accuracy measured in `test/math.test.ts`); `src/kernels/` holds one kernel per
-  file, its module and the JavaScript that feeds it; `src/kernels.ts` is the kernel set, and the module smaltml's
-  thread pool workers import, so it imports nothing from smaltml; `src/index.ts` is `useSimd()`.
+- **Layout:** `src/kernels/` holds one kernel per file, its module (written with `smaltkit/simd`: instructions,
+  modules, `Room` for memory, and `simdMath`, our own f64x2 exp, log1p and ln, tested in smaltkit) and the JavaScript
+  that feeds it; `src/kernels.ts` is the kernel set, and the module smaltml's thread pool workers import, so it
+  imports nothing from smaltml; `src/index.ts` is `useSimd()`.
   `scripts/bundle.mjs`, our own, writes `dist/smaltml-simd-kernels.js`: that module and what it imports, in one file,
-  for apps whose bundler folds the plugin in. It takes only the plain imports and exports tsc emits, and fails on
-  anything else.
+  for apps whose bundler folds the plugin in, smaltkit/simd's modules included. It takes only the plain imports,
+  exports and re-exports tsc emits, and fails on anything else.
 - **A new kernel** needs smaltml's contract to name it first (smaltml's `useKernels`), tests against plain loops on odd
   sizes (`test/`), a row in the benchmark, and the compare tests passing with it on.
 - A significant decision gets an ADR, numbered in the family's sequence (smaltworks `adr/README.md`).

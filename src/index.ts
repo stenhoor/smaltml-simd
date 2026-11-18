@@ -4,9 +4,9 @@
  */
 import { useKernels } from '@smaltworks/smaltml/core';
 import kernelSet, { type SimdOptions } from './kernels.ts';
-import { simdSupport } from './support.ts';
+import { simdSupport } from 'smaltkit/simd';
 
-export { simdSupport, type SimdSupport } from './support.ts';
+export { simdSupport, type SimdSupport } from 'smaltkit/simd';
 export { type SimdOptions } from './kernels.ts';
 
 /**
