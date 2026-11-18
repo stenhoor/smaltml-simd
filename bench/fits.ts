@@ -9,7 +9,11 @@
 // With --only-logistic, only the LogisticRegression fits by lbfgs (the logistic row kernels). The SIMD columns turn
 // the logistic kernels on (useSimd({ logistic: true })); the other fits never call them.
 //
-//   node bench/fits.ts [--threads 4] [--matmul | --only-matmul | --only-logistic]
+//   npm run bench -- [--threads 4] [--matmul | --only-matmul | --only-logistic]
+//
+// npm run bench compiles bench/ and src/ to JavaScript (.bench/) and runs that, never the .ts files: in Node, loading
+// any .ts file slows some typed-array loops for the rest of the process, smaltml's among them (bench/README.md,
+// 2026-11-18), and the own-kernel columns would be measured slow.
 import { cpus } from 'node:os';
 import { performance } from 'node:perf_hooks';
 import { ElasticNet, Lasso, LinearRegression, LogisticRegression, Matrix, Ridge, configureThreads, matMulSync, stopThreads, useKernels, VERSION } from '@smaltworks/smaltml';

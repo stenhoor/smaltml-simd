@@ -7,3 +7,4 @@ coverage/
 bench/results/*.local.json
 docs/.vitepress/cache/
 docs/.vitepress/dist/
+.bench/
