@@ -91,3 +91,34 @@ on unscaled data, as smaltml's benchmark fits them.
   data, where the fit converges in 12 iterations, coefficients agreed within 6 × 10⁻¹⁶ (10k × 20, 2 classes; a check
   made by hand, not by this script).
   smaltml's compare tests against scikit-learn pass with the kernels on.
+
+## 2026-11-18: the kernels' memory never grows
+
+Until this change, a kernel grew its WebAssembly memory when a block needed more than it had (`Memory.grow`). Growing
+detaches the memory's old buffer, and V8 then compiles some typed-array loops in the whole process (or worker) with
+extra checks, for good: a probe loop (`s += v[i] · c + 0.5` over one Float64Array) took 9–10 ms before a grow and
+21–37 ms after, in a fresh Node process each time. Creating a new memory doesn't do it. Not every loop is affected: a
+loop over two arrays timed 7.4–7.8 ms before and after. Each kernel now has a fixed memory and, where it needs
+more, a new, larger memory with a new instance (`src/kernels/room.ts`); `test/wasm.test.ts` checks that a large
+`gramPart` and `matMul` never call `grow`.
+
+**This benchmark doesn't show it.** `node bench/fits.ts --matmul` before (`b5b9451`) and after the change, run one
+after the other on the same machine, gave the same times within the noise on every row, smaltml's own columns
+included: for example 200k × 50 LinearRegression 246 and 238 ms, lbfgs 2 classes 3,293 and 3,216 ms, on one thread.
+The tables above stand. A separate check at smaltml's pin (`1852dd4`) agreed: smaltml's own lbfgs, 200k × 50, timed
+the same before and after a threaded fit and SIMD fits, with the old plugin and the new.
+
+**smaltml's current code does show it.** One process per run, 200k × 50, one thread, smaltml at `a0d321d`, with the
+plugin's default kernels (`gramPart`, `matMul`): a Ridge fit, then smaltml's own lbfgs, then a decision tree. Three
+rounds, old plugin, new plugin and no plugin in turn; ms per fit, after a warm-up fit:
+
+| Plugin | Ridge (SIMD) | lbfgs, 2 classes (smaltml's kernels) | DecisionTreeRegressor, depth 10 (smaltml's code) |
+| --- | ---: | ---: | ---: |
+| Old: grows its memory | 100–110 | 2,949–2,984 | 10,006–10,277 |
+| New: never grows | 86–92 | 2,402–2,582 | 8,847–9,097 |
+| None | 182–196 | 2,462–2,814 | 8,990–9,434 |
+
+With the old plugin, smaltml's own code after a SIMD fit ran 13–19% slower than with the new one, and slower than
+without the plugin. With the new one it runs as without it. Why smaltml's pinned code wasn't affected and its current
+code is: not known. (An assumption, not checked: the current code's loops have the shape V8 compiles with the extra
+checks.) The script was a scratch file, not committed; this table is the only record.
