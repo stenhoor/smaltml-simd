@@ -1,6 +1,6 @@
 # Benchmarks
 
-`npm run bench` (`bench/fits.ts`) times smaltml's fits three ways:
+`npm run bench` (`bench/fits.ts`, compiled to JavaScript first) times smaltml's fits three ways:
 - with smaltml's own kernels;
 - with the plugin's plain SIMD;
 - with the plugin's fused multiply-add.
@@ -12,6 +12,10 @@ Each runs on one thread (`fitSync`) and on 4 (`fit` with `threads: 4`), and each
 The last column is the largest difference of a fit's coefficients from smaltml's own, relative to the largest coefficient.
 
 ## 2026-11-17: the first kernel, `gramPart`
+
+> **Corrected 2026-11-18:** measured with `node bench/fits.ts`, run as TypeScript, which slows smaltml's code and the
+> plugin's JavaScript (see "2026-11-18" below). The times here are too high, and some speed-ups were wrong;
+> the 2026-11-18 tables replace them.
 
 smaltml at `a2cf4e5`, on a cloud VM whose times vary by up to about ±30% between rounds (smaltml ADR 0035, "Noise"). Speed-ups are against smaltml on the same number of threads.
 
@@ -47,6 +51,10 @@ smaltml 0.1.0 with smaltml-simd, Node 22.23.4, Intel(R) Xeon(R) Processor @ 2.10
 
 ## 2026-11-17: the matrix product, `matMul`
 
+> **Corrected 2026-11-18:** measured with `node bench/fits.ts`, run as TypeScript, which slows smaltml's code and the
+> plugin's JavaScript (see "2026-11-18" below). The times here are too high, and some speed-ups were wrong;
+> the 2026-11-18 tables replace them.
+
 `node bench/fits.ts --only-matmul`: smaltml's `matMulSync` with smaltml's kernel, plain SIMD and fused multiply-add,
 on one thread. A comes from the same generator, and B has a few columns (as predictions with several targets) or is
 square. Same machine and smaltml as above; median ms of 5 or 9 runs.
@@ -66,6 +74,10 @@ square. Same machine and smaltml as above; median ms of 5 or 9 runs.
 - Nothing in smaltml's fits calls `matMulSync` today, so the fits above don't change with this kernel.
 
 ## 2026-11-17: the logistic row kernels, `logistic: true`
+
+> **Corrected 2026-11-18:** measured with `node bench/fits.ts`, run as TypeScript, which slows smaltml's code and the
+> plugin's JavaScript (see "2026-11-18" below). The times here are too high, and some speed-ups were wrong;
+> the 2026-11-18 tables replace them.
 
 `node bench/fits.ts --only-logistic`: LogisticRegression's default `lbfgs` fits, 2 and 3 classes, with smaltml's
 kernels, plain SIMD and fused multiply-add (`useSimd({ logistic: true })`), on one thread and on 4. Same machine as
@@ -92,33 +104,87 @@ on unscaled data, as smaltml's benchmark fits them.
   made by hand, not by this script).
   smaltml's compare tests against scikit-learn pass with the kernels on.
 
-## 2026-11-18: the kernels' memory never grows
+## 2026-11-18: TypeScript in Node, and the kernels' memory
 
-Until this change, a kernel grew its WebAssembly memory when a block needed more than it had (`Memory.grow`). Growing
-detaches the memory's old buffer, and V8 then compiles some typed-array loops in the whole process (or worker) with
-extra checks, for good: a probe loop (`s += v[i] · c + 0.5` over one Float64Array) took 9–10 ms before a grow and
-21–37 ms after, in a fresh Node process each time. Creating a new memory doesn't do it. Not every loop is affected: a
-loop over two arrays timed 7.4–7.8 ms before and after. Each kernel now has a fixed memory and, where it needs
-more, a new, larger memory with a new instance (`src/kernels/room.ts`); `test/wasm.test.ts` checks that a large
-`gramPart` and `matMul` never call `grow`.
+### Loading TypeScript slowed the benchmark
 
-**This benchmark doesn't show it.** `node bench/fits.ts --matmul` before (`b5b9451`) and after the change, run one
-after the other on the same machine, gave the same times within the noise on every row, smaltml's own columns
-included: for example 200k × 50 LinearRegression 246 and 238 ms, lbfgs 2 classes 3,293 and 3,216 ms, on one thread.
-The tables above stand. A separate check at smaltml's pin (`1852dd4`) agreed: smaltml's own lbfgs, 200k × 50, timed
-the same before and after a threaded fit and SIMD fits, with the old plugin and the new.
+In Node, loading any `.ts` file slows some typed-array loops for the rest of the process. A probe loop
+(`s += v[i] · c + 0.5` over one Float64Array, in a fresh process each time) took 9 ms, and 20 ms after importing a
+one-line `.ts` file; as a `.ts` script itself, 19–24 ms. Not every loop is affected: one over two arrays timed the same
+either way. Node's type stripping is the cause (an assumption, not checked: it runs a WebAssembly build of swc, whose
+memory grows, and the next section is that effect).
 
-**smaltml's current code does show it.** One process per run, 200k × 50, one thread, smaltml at `a0d321d`, with the
-plugin's default kernels (`gramPart`, `matMul`): a Ridge fit, then smaltml's own lbfgs, then a decision tree. Three
-rounds, old plugin, new plugin and no plugin in turn; ms per fit, after a warm-up fit:
+`npm run bench` ran `bench/fits.ts` as TypeScript, so every table above was measured in that state: smaltml's own
+kernels and the plugin's JavaScript (the copying around each WebAssembly call) slower than an app sees them. It now
+compiles `bench/` and `src/` with tsc into `.bench/` and runs the JavaScript. The plugin's tests still run as
+TypeScript: they check results, not times.
+
+### The kernels' memory never grows
+
+Until this change, a kernel grew its WebAssembly memory where a block needed more than it had (`Memory.grow`). Growing
+detaches the old buffer, and that slows the same loops, in the whole process or worker, for good: the probe loop took
+9–10 ms before a grow and 21–37 ms after. Creating a new memory doesn't. Each kernel now keeps its memory and, where it
+needs more, makes a new, larger one with a new instance (`src/kernels/room.ts`); `test/wasm.test.ts` checks that a
+large `gramPart` and `matMul` never call `grow`.
+
+`bench/after-simd.ts` measures what it did to the code that runs after a SIMD fit: a Ridge fit (the plugin's
+`gramPart`), then smaltml's own lbfgs and a decision tree, in a process per run, with the plugin before the change,
+after it, and none, in turn. smaltml at `a0d321d`, its benchmark data (`--data ../smaltml/bench/data`), 2 runs of each
+(`--run`, one at a time, alternating), compiled JavaScript; ms per fit:
 
 | Plugin | Ridge (SIMD) | lbfgs, 2 classes (smaltml's kernels) | DecisionTreeRegressor, depth 10 (smaltml's code) |
 | --- | ---: | ---: | ---: |
-| Old: grows its memory | 100–110 | 2,949–2,984 | 10,006–10,277 |
-| New: never grows | 86–92 | 2,402–2,582 | 8,847–9,097 |
-| None | 182–196 | 2,462–2,814 | 8,990–9,434 |
+| Before (`b5b9451`): grows its memory | 94–97 | 2,621–2,623 | 9,499–9,703 |
+| After: never grows | 81–85 | 2,150–2,158 | 8,448–8,704 |
 
-With the old plugin, smaltml's own code after a SIMD fit ran 13–19% slower than with the new one, and slower than
-without the plugin. With the new one it runs as without it. Why smaltml's pinned code wasn't affected and its current
-code is: not known. (An assumption, not checked: the current code's loops have the shape V8 compiles with the extra
-checks.) The script was a scratch file, not committed; this table is the only record.
+With the old plugin, smaltml's own code after a SIMD fit ran slower: lbfgs by 22%, the tree by 9–15%. Run as
+TypeScript, the same script showed no difference: both builds ran slowed by TypeScript loading. (These runs were on
+the VM before the one below, which the session moved to; the table below was all measured on one.)
+
+### The fits and the product, again
+
+`npm run bench -- --matmul`, compiled JavaScript, after both fixes; smaltml at the plugin's pin (`1852dd4`); a cloud VM
+whose times vary by about ±10% between runs. Speed-ups are against smaltml on the same number of threads.
+
+smaltml 0.1.0 with smaltml-simd, Node 22.23.4, Intel(R) Xeon(R) Processor @ 2.10GHz (4 cores); median ms
+
+| Data | Fit | smaltml, 1 thread | SIMD | SIMD, fused | smaltml, 4 threads | SIMD | SIMD, fused | Largest coefficient difference, SIMD (fused) |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 10k × 20 | LinearRegression | 3.6 | 1.7 (2.1×) | 1.5 (2.4×) | 4.4 | 2.6 (1.7×) | 2.6 (1.7×) | 3.1e-16 (4.2e-16) |
+| 10k × 20 | Ridge | 2.8 | 1.4 (2.1×) | 1.1 (2.5×) | 3.2 | 1.8 (1.8×) | 1.6 (2.0×) | 1.5e-15 (1.5e-15) |
+| 10k × 20 | Lasso (alpha 0.1) | 2.5 | 1.2 (2.1×) | 1.1 (2.3×) | 3.1 | 2.1 (1.5×) | 1.8 (1.7×) | 1.5e-15 (1.7e-15) |
+| 10k × 20 | ElasticNet (alpha 0.1) | 2.3 | 1.2 (2.0×) | 1.1 (2.1×) | 3.0 | 1.8 (1.7×) | 1.5 (2.0×) | 1.3e-15 (1.2e-15) |
+| 10k × 20 | LogisticRegression, newton-cholesky | 24 | 14 (1.8×) | 14 (1.8×) | 29 | 24 (1.2×) | 17 (1.8×) | 7.8e-15 (2.6e-15) |
+| 10k × 20 | LogisticRegression, lbfgs, 2 classes | 81 | 58 (1.4×) | 59 (1.4×) | 103 | 73 (1.4×) | 79 (1.3×) | 3.3e-2 (3.3e-2) |
+| 10k × 20 | LogisticRegression, lbfgs, 3 classes | 203 | 160 (1.3×) | 156 (1.3×) | 207 | 178 (1.2×) | 173 (1.2×) | 6.1e-8 (6.1e-8) |
+| 200k × 50 | LinearRegression | 216 | 114 (1.9×) | 110 (2.0×) | 98 | 64 (1.5×) | 56 (1.7×) | 4.8e-17 (4.8e-17) |
+| 200k × 50 | Ridge | 196 | 93 (2.1×) | 86 (2.3×) | 88 | 46 (1.9×) | 45 (2.0×) | 1.9e-16 (2.9e-16) |
+| 200k × 50 | Lasso (alpha 0.1) | 203 | 96 (2.1×) | 87 (2.3×) | 88 | 49 (1.8×) | 53 (1.7×) | 1.9e-16 (1.9e-16) |
+| 200k × 50 | ElasticNet (alpha 0.1) | 208 | 92 (2.3×) | 88 (2.4×) | 84 | 47 (1.8×) | 47 (1.8×) | 2.9e-16 (2.9e-16) |
+| 200k × 50 | LogisticRegression, newton-cholesky | 1949 | 897 (2.2×) | 852 (2.3×) | 737 | 405 (1.8×) | 344 (2.1×) | 9.6e-17 (1.9e-16) |
+| 200k × 50 | LogisticRegression, lbfgs, 2 classes | 2914 | 2410 (1.2×) | 2456 (1.2×) | 1015 | 875 (1.2×) | 911 (1.1×) | 4.1e-3 (4.1e-3) |
+| 200k × 50 | LogisticRegression, lbfgs, 3 classes | 7881 | 7209 (1.1×) | 6979 (1.1×) | 3029 | 2633 (1.2×) | 2452 (1.2×) | 2.6e-7 (2.6e-7) |
+| 50k × 200 | LinearRegression | 568 | 199 (2.9×) | 170 (3.3×) | 218 | 95 (2.3×) | 73 (3.0×) | 4.2e-16 (3.0e-16) |
+| 50k × 200 | Ridge | 567 | 179 (3.2×) | 154 (3.7×) | 198 | 76 (2.6×) | 74 (2.7×) | 1.3e-15 (1.6e-15) |
+| 50k × 200 | Lasso (alpha 0.1) | 543 | 165 (3.3×) | 159 (3.4×) | 226 | 75 (3.0×) | 74 (3.1×) | 1.6e-15 (1.6e-15) |
+| 50k × 200 | ElasticNet (alpha 0.1) | 539 | 174 (3.1×) | 144 (3.7×) | 199 | 73 (2.7×) | 65 (3.1×) | 1.4e-15 (1.1e-15) |
+| 50k × 200 | LogisticRegression, newton-cholesky | 5340 | 1737 (3.1×) | 1543 (3.5×) | 1895 | 691 (2.7×) | 655 (2.9×) | 1.2e-13 (7.0e-14) |
+| 50k × 200 | LogisticRegression, lbfgs, 2 classes | 2323 | 2128 (1.1×) | 2151 (1.1×) | 850 | 779 (1.1×) | 742 (1.1×) | 1.2e-8 (1.2e-8) |
+| 50k × 200 | LogisticRegression, lbfgs, 3 classes | 6934 | 6647 (1.0×) | 6680 (1.0×) | 2749 | 2474 (1.1×) | 2498 (1.1×) | 2.4e-3 (2.4e-3) |
+| Product | smaltml | SIMD | SIMD, fused | Equal to smaltml, SIMD | Largest difference, fused |
+
+| --- | ---: | ---: | ---: | --- | ---: |
+| 200k × 50 · 50 × 1 | 20 | 25 (0.8×) | 22 (0.9×) | yes, bit for bit | 4.7e-16 |
+| 200k × 50 · 50 × 3 | 59 | 28 (2.1×) | 24 (2.4×) | yes, bit for bit | 4.1e-16 |
+| 50k × 200 · 200 × 10 | 198 | 112 (1.8×) | 84 (2.4×) | yes, bit for bit | 4.2e-16 |
+| 1,000 × 500 · 500 × 500 | 386 | 64 (6.0×) | 43 (8.9×) | yes, bit for bit | 5.4e-16 |
+
+- **The least-squares and newton-cholesky fits, with `gramPart`: 1.8 to 3.7 times as fast on one thread,** 1.2 to
+  3.1 on 4. The gain grows with the number of columns, as before: about 2× at 200,000 × 50, about 3–3.7× at
+  50,000 × 200. The earlier table's top figures (up to 4.7×) don't hold.
+- **The logistic row kernels (`logistic: true`): 1.0 to 1.4 times,** none slower now on 4 threads. A fit spends most of
+  its time in X·w and Xᵀ·r, which no kernel replaces yet.
+- **`matMul` gains much less than the earlier table said.** With one column, as a single prediction, it is **slower**
+  than smaltml's: 0.8 times plain, 0.9 fused. With 3 or 10 columns, 1.8 to 2.4 times; square, 6 to 8.9 times. The
+  earlier 3.3× and 4.1× were measured with smaltml's kernel slowed.
+- Coefficients and products differ from smaltml's as before: the same columns as the earlier tables.
