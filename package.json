@@ -52,7 +52,7 @@
     "@smaltworks/smaltml": ">=0.1.0"
   },
   "devDependencies": {
-    "@smaltworks/smaltml": "github:stenhoor/smaltml#1852dd470ec50700a4d86c2094a710ed54f5a654",
+    "@smaltworks/smaltml": "github:stenhoor/smaltml#5d94024e8183c508fae596fd3809dff783a3573f",
     "@types/node": "^22.20.5",
     "playwright": "1.64.1",
     "typescript": "~6.0.3",
