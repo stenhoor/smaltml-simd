@@ -24,7 +24,7 @@
     "test": "node --test 'test/**/*.test.ts'",
     "check": "npm run typecheck && npm test",
     "build": "node scripts/build.mjs",
-    "bench": "node bench/fits.ts",
+    "bench": "tsc -p tsconfig.bench.json && node .bench/bench/fits.js",
     "prepare": "npm run build",
     "test:browser": "node test/browser/docs.mjs",
     "docs:dev": "vitepress dev docs",

@@ -11,6 +11,7 @@
  *   loss += w · (max + ln Σ e_c − z_y), e_c = exp(z_c − max)
  *   z_c   = w · (e_c / Σ e − [c = y])
  */
+import { Room } from './room.ts';
 import { Code } from '../wasm/code.ts';
 import { F64, I32, V128 } from '../wasm/encode.ts';
 import { exp, log1p, logAtLeast1 } from '../wasm/math.ts';
@@ -135,28 +136,20 @@ export function logisticModule(fused: boolean): Uint8Array<ArrayBuffer> {
 }
 
 interface LogisticExports {
-  memory: WebAssembly.Memory;
   binary(z: number, y: number, w: number, mbytes: number): number;
   softmax(z: number, k: number, y: number, w: number, mbytes: number): number;
 }
 
 /** One compiled logistic module and the JavaScript that feeds it: smaltml's two logistic row kernels. */
 export class SimdLogistic {
-  readonly #exports: LogisticExports;
-  #f64: Float64Array;
+  readonly #room: Room<LogisticExports>;
 
   constructor(module: WebAssembly.Module) {
-    this.#exports = new WebAssembly.Instance(module).exports as unknown as LogisticExports;
-    this.#f64 = new Float64Array(this.#exports.memory.buffer);
+    this.#room = new Room(module);
   }
 
   #reserve(values: number): Float64Array {
-    const memory = this.#exports.memory;
-    const bytes = values * 8;
-    const have = memory.buffer.byteLength;
-    if (have < bytes) memory.grow(Math.ceil((bytes - have) / 65536));
-    if (this.#f64.buffer !== memory.buffer || this.#f64.length * 8 !== memory.buffer.byteLength) this.#f64 = new Float64Array(memory.buffer);
-    return this.#f64;
+    return this.#room.reserve(values * 8);
   }
 
   /** y and w for rows at … at + m, as f64, padded to `even` rows with weight 0, at `yAt` and `wAt`. */
@@ -176,8 +169,8 @@ export class SimdLogistic {
     mem.set(z.subarray(0, m), 0);
     mem[m] = 0;
     this.#labels(mem, y, weights, at, m, even, even, 2 * even);
-    const loss = this.#exports.binary(0, even * 8, 2 * even * 8, even * 8);
-    z.set(this.#f64.subarray(0, m));
+    const loss = this.#room.exports.binary(0, even * 8, 2 * even * 8, even * 8);
+    z.set(this.#room.f64.subarray(0, m));
     return loss;
   }
 
@@ -194,8 +187,8 @@ export class SimdLogistic {
       if (even > m) mem[c * even + m] = 0;
     }
     this.#labels(mem, y, weights, at, m, even, K * even, (K + 1) * even);
-    const loss = this.#exports.softmax(0, K, K * even * 8, (K + 1) * even * 8, even * 8);
-    const out = this.#f64;
+    const loss = this.#room.exports.softmax(0, K, K * even * 8, (K + 1) * even * 8, even * 8);
+    const out = this.#room.f64;
     for (let c = 0; c < K; c++) z.set(out.subarray(c * even, c * even + m), c * stride);
     return loss;
   }

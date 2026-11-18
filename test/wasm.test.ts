@@ -33,9 +33,11 @@ test('a module built here runs: f64x2 arithmetic through memory', async () => {
     c.get(acc).f64x2ExtractLane(0).get(acc).f64x2ExtractLane(1).f64Add();
     const bytes = new ModuleBuilder().memory(1).func('dot', [I32, I32], [F64], c).encode();
     assert.ok(WebAssembly.validate(bytes));
-    const { instance } = (await WebAssembly.instantiate(bytes)) as unknown as WebAssembly.WebAssemblyInstantiatedSource;
-    const ex = instance.exports as { memory: WebAssembly.Memory; dot(a: number, b: number): number };
-    new Float64Array(ex.memory.buffer).set([1.5, -2, 4, 0.25]);
+    // The module imports its memory (env.memory).
+    const memory = new WebAssembly.Memory({ initial: 1 });
+    const { instance } = (await WebAssembly.instantiate(bytes, { env: { memory } })) as unknown as WebAssembly.WebAssemblyInstantiatedSource;
+    const ex = instance.exports as { dot(a: number, b: number): number };
+    new Float64Array(memory.buffer).set([1.5, -2, 4, 0.25]);
     assert.equal(ex.dot(0, 16), 1.5 * 4 + -2 * 0.25);
   }
 });
@@ -54,4 +56,27 @@ test('loops and branches: a sum of 1 to n', async () => {
   const bytes = new ModuleBuilder().func('sum', [I32], [I32], c).encode();
   const { instance } = (await WebAssembly.instantiate(bytes)) as unknown as WebAssembly.WebAssemblyInstantiatedSource;
   assert.equal((instance.exports as { sum(n: number): number }).sum(101), 5050);
+});
+
+test("the kernels never grow their memory: a larger call gets a new memory, and no buffer is detached", async () => {
+  // Growing a WebAssembly memory detaches its old buffer, and V8 then slows every typed-array loop in the process.
+  const { default: kernelSet } = await import('../src/kernels.ts');
+  const set = await kernelSet({});
+  const grow = WebAssembly.Memory.prototype.grow;
+  let grew = 0;
+  WebAssembly.Memory.prototype.grow = function (pages: number) {
+    grew++;
+    return grow.call(this, pages);
+  };
+  try {
+    // XᵀX and a product far bigger than one 64 KiB page.
+    const n = 3000;
+    const p = 40;
+    const X = { rows: n, cols: p, data: Float64Array.from({ length: n * p }, (_, i) => Math.sin(i)) };
+    set.kernels.gramPart!(X as never, undefined, 0, n);
+    set.kernels.matMul!(n, p, 3, X.data, Float64Array.from({ length: p * 3 }, (_, i) => i));
+  } finally {
+    WebAssembly.Memory.prototype.grow = grow;
+  }
+  assert.equal(grew, 0);
 });
