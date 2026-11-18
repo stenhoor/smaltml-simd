@@ -12,4 +12,4 @@ import { useSimd } from '../src/index.ts';
 const fusedMultiplyAdd = process.env.SMALTML_SIMD_FMA === '1';
 if (!(await useSimd({ fusedMultiplyAdd, logistic: true }))) throw new Error('smaltml-simd did not turn on: WebAssembly SIMD is missing, or a kernel failed the check');
 const used = kernelsInUse();
-if (used.kernels.join() !== 'gramPart,matMul,binaryLogisticRows,multinomialLogisticRows') throw new Error(`smaltml-simd: unexpected kernels in use: ${JSON.stringify(used)}`);
+if (used.kernels.join() !== 'gramPart,matMul,binaryLogisticRows,multinomialLogisticRows,logisticProducts') throw new Error(`smaltml-simd: unexpected kernels in use: ${JSON.stringify(used)}`);

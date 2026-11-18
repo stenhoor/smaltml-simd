@@ -7,6 +7,7 @@ import type { KernelSet } from '@smaltworks/smaltml/core';
 import { gramModule, SimdGram } from './kernels/gram.ts';
 import { logisticModule, SimdLogistic } from './kernels/logistic.ts';
 import { matMulModule, SimdMatMul } from './kernels/matmul.ts';
+import { productsModule, SimdProducts } from './kernels/products.ts';
 import { simdSupport } from './support.ts';
 
 /** How the plugin runs. */
@@ -48,9 +49,10 @@ export default async function kernelSet(options: SimdOptions = {}): Promise<Kern
   const support = simdSupport();
   if (!support.simd) throw new Error("this engine's WebAssembly has no SIMD");
   const fused = !!options.fusedMultiplyAdd && support.relaxed;
-  const [gramMod, matMulMod] = await Promise.all([WebAssembly.compile(gramModule(fused)), WebAssembly.compile(matMulModule(fused))]);
-  const gram = new SimdGram(gramMod);
-  const product = new SimdMatMul(matMulMod);
+  const [gramMod, matMulMod, productsMod] = await Promise.all([gramModule, matMulModule, productsModule].map((m) => WebAssembly.compile(m(fused))));
+  const gram = new SimdGram(gramMod!);
+  const product = new SimdMatMul(matMulMod!);
+  const products = new SimdProducts(productsMod!);
   const logistic = options.logistic ? new SimdLogistic(await WebAssembly.compile(logisticModule(fused))) : undefined;
   return {
     name: setName(fused),
@@ -58,6 +60,7 @@ export default async function kernelSet(options: SimdOptions = {}): Promise<Kern
     kernels: {
       gramPart: (X, mean, from, to, weights, ones) => gram.gramPart(X, mean, from, to, weights, ones),
       matMul: (n, p, k, a, b) => product.matMul(n, p, k, a, b),
+      logisticProducts: (X) => products.prepare(X),
       ...(logistic && {
         binaryLogisticRows: (z, y, weights, at, m, loss) => loss + logistic.binaryRows(z, y, weights, at, m),
         multinomialLogisticRows: (z, stride, K, y, weights, at, m, loss) => loss + logistic.multinomialRows(z, stride, K, y, weights, at, m),

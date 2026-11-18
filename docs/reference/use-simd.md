@@ -61,7 +61,7 @@ kernelsInUse()
 
 | name | kernels | rejected |
 | --- | --- | --- |
-| smaltml-simd, fused multiply-add | [gramPart, matMul] | [] |
+| smaltml-simd, fused multiply-add | [gramPart, matMul, logisticProducts] | [] |
 
 ## Working demo
 

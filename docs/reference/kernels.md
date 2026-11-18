@@ -61,6 +61,7 @@ kernelsInUse().kernels
 | --- |
 | gramPart |
 | matMul |
+| logisticProducts |
 
 ## Working demo
 
